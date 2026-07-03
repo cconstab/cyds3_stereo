@@ -49,7 +49,8 @@ small{color:#888}label{display:block;margin-top:8px}
 <label>Password<input id=wifiPass type=password placeholder="(unchanged)"></label>
 
 <h2>Options</h2>
-<label><input type=checkbox id=speakersEnabled style="width:auto"> Speakers enabled (line-out always on)</label>
+<label><input type=checkbox id=onboardSpeaker style="width:auto"> Onboard speaker</label>
+<label><input type=checkbox id=speakersEnabled style="width:auto"> External speakers (line-out always on)</label>
 <label><input type=checkbox id=autoPlay style="width:auto"> Auto-play on boot</label>
 <label>Brightness %<input type=number id=brightness min=5 max=100></label>
 
@@ -80,12 +81,12 @@ function poll(){fetch('/api/status').then(r=>r.json()).then(s=>{
 function load(){fetch('/api/config').then(r=>r.json()).then(c=>{
  for(const k of ['stationName','wifiSsid','otaBaseUrl','brightness'])$(k).value=c[k]??'';
  $('streamUrls').value=(c.streamUrls||[]).join('\n');
- for(const k of ['speakersEnabled','autoPlay','autoUpdate'])$(k).checked=!!c[k];
+ for(const k of ['speakersEnabled','onboardSpeaker','autoPlay','autoUpdate'])$(k).checked=!!c[k];
 })}
 function save(){
  const body={stationName:$('stationName').value,wifiSsid:$('wifiSsid').value,
   streamUrls:$('streamUrls').value.split('\n').map(s=>s.trim()).filter(Boolean),
-  speakersEnabled:$('speakersEnabled').checked,autoPlay:$('autoPlay').checked,
+  speakersEnabled:$('speakersEnabled').checked,onboardSpeaker:$('onboardSpeaker').checked,autoPlay:$('autoPlay').checked,
   autoUpdate:$('autoUpdate').checked,brightness:+$('brightness').value,
   otaBaseUrl:$('otaBaseUrl').value};
  if($('wifiPass').value)body.wifiPass=$('wifiPass').value;
@@ -132,6 +133,7 @@ static void handleConfigPost() {
     String prevSsid = config.wifiSsid, prevPass = config.wifiPass;
     uint8_t prevVol = config.volume;
     bool prevSpeakers = config.speakersEnabled;
+    bool prevOnboard = config.onboardSpeaker;
 
     if (!configFromJson(server.arg("plain"))) {
         server.send(400, "application/json", "{\"ok\":false}");
@@ -143,6 +145,7 @@ static void handleConfigPost() {
     playerReloadUrls();
     if (config.volume != prevVol) playerSetVolume(config.volume);
     if (config.speakersEnabled != prevSpeakers) playerSetSpeakers(config.speakersEnabled);
+    if (config.onboardSpeaker != prevOnboard) playerSetOnboardSpeaker(config.onboardSpeaker);
     if (config.wifiSsid != prevSsid || config.wifiPass != prevPass) {
         // Apply new WiFi credentials after the response goes out
         delay(500);

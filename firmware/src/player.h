@@ -28,3 +28,7 @@ void playerPrevUrl();
 void playerSetVolume(uint8_t vol);      // 0..21
 void playerReloadUrls();                // re-read config.streamUrls
 void playerSetSpeakers(bool enabled);   // MAX98357A SD_MODE pin
+
+// Onboard mono speaker (ES8311 codec + amp). NOT thread-safe: call from the
+// UI/web core only — its I2C bus is shared with the touch controller.
+void playerSetOnboardSpeaker(bool enabled);

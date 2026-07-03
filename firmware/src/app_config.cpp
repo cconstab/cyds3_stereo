@@ -32,6 +32,7 @@ String configToJson(bool includeSecrets) {
     for (auto &u : config.streamUrls) urls.add(u);
     doc["volume"] = config.volume;
     doc["speakersEnabled"] = config.speakersEnabled;
+    doc["onboardSpeaker"] = config.onboardSpeaker;
     doc["autoPlay"] = config.autoPlay;
     doc["brightness"] = config.brightness;
     doc["otaBaseUrl"] = config.otaBaseUrl;
@@ -60,6 +61,7 @@ bool configFromJson(const String &json) {
     }
     if (doc["volume"].is<int>()) config.volume = constrain(doc["volume"].as<int>(), 0, 21);
     if (doc["speakersEnabled"].is<bool>()) config.speakersEnabled = doc["speakersEnabled"];
+    if (doc["onboardSpeaker"].is<bool>()) config.onboardSpeaker = doc["onboardSpeaker"];
     if (doc["autoPlay"].is<bool>()) config.autoPlay = doc["autoPlay"];
     if (doc["brightness"].is<int>()) config.brightness = constrain(doc["brightness"].as<int>(), 5, 100);
     if (doc["otaBaseUrl"].is<const char *>()) {

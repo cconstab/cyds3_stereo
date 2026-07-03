@@ -4,8 +4,11 @@
 #include "player.h"
 #include "app_config.h"
 #include "pins.h"
+#include "es8311.h"
 #include <Audio.h>
 #include <WiFi.h>
+#include <esp_rom_gpio.h>
+#include <soc/gpio_sig_map.h>
 
 static Audio audio; // I2S port 0 -> external stereo bus (MAX98357A x2 + PCM5102A)
 
@@ -173,8 +176,20 @@ static void watchdog() {
     }
 }
 
+// Mirror one I2S0 output signal onto an extra GPIO via the routing matrix, so the
+// same bus drives both the external DACs and the onboard ES8311 codec.
+static void mirrorI2sPin(uint8_t gpio, uint32_t signalIdx) {
+    pinMode(gpio, OUTPUT);
+    esp_rom_gpio_connect_out_signal(gpio, signalIdx, false, false);
+}
+
 static void audioTask(void *) {
-    audio.setPinout(PIN_I2S_EXT_BCK, PIN_I2S_EXT_WS, PIN_I2S_EXT_DOUT);
+    // Primary pins: external stereo bus. MCLK goes straight to the ES8311.
+    audio.setPinout(PIN_I2S_EXT_BCK, PIN_I2S_EXT_WS, PIN_I2S_EXT_DOUT, PIN_I2S_INT_MCK);
+    // Fan the bus out to the onboard codec's I2S pins as well.
+    mirrorI2sPin(PIN_I2S_INT_BCK, I2S0O_BCK_OUT_IDX);
+    mirrorI2sPin(PIN_I2S_INT_WS, I2S0O_WS_OUT_IDX);
+    mirrorI2sPin(PIN_I2S_INT_DOUT, I2S0O_SD_OUT_IDX);
     audio.setVolumeSteps(21);
     audio.setVolume(config.volume);
     audio.setConnectionTimeout(5000, 7000);
@@ -203,13 +218,28 @@ static void audioTask(void *) {
 void playerBegin() {
     pinMode(PIN_EXT_AMP_SD, OUTPUT);
     applySpeakers(config.speakersEnabled);
-    // Keep the onboard mono amp off; the ES8311 codec is left unconfigured (muted).
+
+    // Onboard mono speaker: ES8311 codec listens on the mirrored I2S bus.
+    // Codec I2C setup must happen here (core 1, before the UI loop runs) because
+    // the bus is shared with the touch controller.
     pinMode(PIN_AMP_ENABLE, OUTPUT);
-    digitalWrite(PIN_AMP_ENABLE, LOW);
+    if (es8311_codec_init() == ESP_OK) {
+        Serial.println("[player] ES8311 codec initialized");
+        playerSetOnboardSpeaker(config.onboardSpeaker);
+    } else {
+        Serial.println("[player] ES8311 init failed — onboard speaker unavailable");
+        digitalWrite(PIN_AMP_ENABLE, LOW);
+    }
 
     cmdQueue = xQueueCreate(8, sizeof(Cmd));
     statusMutex = xSemaphoreCreateMutex();
     xTaskCreatePinnedToCore(audioTask, "audio", 8192, nullptr, 5, &audioTaskHandle, 0);
+}
+
+// Core 1 only (I2C shared with touch): toggles codec mute + speaker amp enable.
+void playerSetOnboardSpeaker(bool enabled) {
+    es8311_output_enable(enabled);
+    digitalWrite(PIN_AMP_ENABLE, enabled ? HIGH : LOW);
 }
 
 void playerGetStatus(PlayerStatus &out) {

@@ -145,8 +145,8 @@ static void buildMain() {
 }
 
 static void buildSettings() {
-    const int rowH = big ? 44 : 38;
-    const int y0 = big ? 56 : 46;
+    const int rowH = big ? 44 : 34;
+    const int y0 = big ? 56 : 42;
 
     scrSettings = lv_obj_create(nullptr);
     lv_obj_set_style_bg_color(scrSettings, lv_color_hex(0x0b0f14), 0);
@@ -180,12 +180,26 @@ static void buildSettings() {
         if (lv_event_get_code(e) == LV_EVENT_RELEASED) configSave();
     }, LV_EVENT_ALL, nullptr);
 
-    // Speakers switch
+    // Onboard speaker switch
+    lv_obj_t *lo = lv_label_create(scrSettings);
+    lv_label_set_text(lo, "Onboard speaker");
+    lv_obj_align(lo, LV_ALIGN_TOP_LEFT, PAD, y0 + rowH + 6);
+    lv_obj_t *swOnboard = lv_switch_create(scrSettings);
+    lv_obj_align(swOnboard, LV_ALIGN_TOP_RIGHT, -PAD, y0 + rowH);
+    if (config.onboardSpeaker) lv_obj_add_state(swOnboard, LV_STATE_CHECKED);
+    lv_obj_add_event_cb(swOnboard, [](lv_event_t *e) {
+        bool on = lv_obj_has_state(lv_event_get_target(e), LV_STATE_CHECKED);
+        config.onboardSpeaker = on;
+        playerSetOnboardSpeaker(on);
+        configSave();
+    }, LV_EVENT_VALUE_CHANGED, nullptr);
+
+    // External speakers switch
     lv_obj_t *ls = lv_label_create(scrSettings);
-    lv_label_set_text(ls, big ? "Speakers (line-out always on)" : "Speakers");
-    lv_obj_align(ls, LV_ALIGN_TOP_LEFT, PAD, y0 + rowH + 6);
+    lv_label_set_text(ls, big ? "External speakers (line-out stays on)" : "External spk");
+    lv_obj_align(ls, LV_ALIGN_TOP_LEFT, PAD, y0 + rowH * 2 + 6);
     swSpeakers = lv_switch_create(scrSettings);
-    lv_obj_align(swSpeakers, LV_ALIGN_TOP_RIGHT, -PAD, y0 + rowH);
+    lv_obj_align(swSpeakers, LV_ALIGN_TOP_RIGHT, -PAD, y0 + rowH * 2);
     if (config.speakersEnabled) lv_obj_add_state(swSpeakers, LV_STATE_CHECKED);
     lv_obj_add_event_cb(swSpeakers, [](lv_event_t *e) {
         bool on = lv_obj_has_state(lv_event_get_target(e), LV_STATE_CHECKED);
@@ -195,7 +209,7 @@ static void buildSettings() {
     }, LV_EVENT_VALUE_CHANGED, nullptr);
 
     // Buttons row: update check + wifi portal
-    const int btnRowY = y0 + rowH * 2 + 4;
+    const int btnRowY = y0 + rowH * 3 + 4;
     const int halfW = (W - PAD * 3) / 2;
     lv_obj_t *btnUpd = lv_btn_create(scrSettings);
     lv_obj_set_size(btnUpd, halfW, rowH);
