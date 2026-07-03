@@ -24,6 +24,9 @@ struct AppConfig {
     uint8_t brightness = 80;    // percent
     bool bootSelfTest = false;  // color-cycle + I2C probe at power-on (bring-up diagnostic)
 
+    // Web interface (always forced on while in provisioning/hotspot mode)
+    bool webUiEnabled = true;
+
     // OTA
     String otaBaseUrl; // e.g. http://192.168.1.50:8080
     bool autoUpdate = true;

@@ -176,6 +176,8 @@ static void handleAction() {
     server.send(ok ? 200 : 400, "application/json", ok ? "{\"ok\":true}" : "{\"ok\":false}");
 }
 
+static bool serverRunning = false;
+
 void webuiBegin() {
     server.on("/", HTTP_GET, []() { server.send_P(200, "text/html", PAGE); });
     server.on("/api/status", HTTP_GET, handleStatus);
@@ -191,9 +193,20 @@ void webuiBegin() {
             server.send(404, "text/plain", "not found");
         }
     });
-    server.begin();
+    // socket is opened/closed in webuiLoop based on config + net mode
 }
 
 void webuiLoop() {
-    server.handleClient();
+    // Forced on in portal mode — the web page IS the provisioning mechanism.
+    bool shouldRun = config.webUiEnabled || netMode() == NetMode::PORTAL;
+    if (shouldRun && !serverRunning) {
+        server.begin();
+        serverRunning = true;
+        Serial.println("[web] server started");
+    } else if (!shouldRun && serverRunning) {
+        server.stop();
+        serverRunning = false;
+        Serial.println("[web] server stopped");
+    }
+    if (serverRunning) server.handleClient();
 }

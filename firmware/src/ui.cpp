@@ -408,8 +408,20 @@ static void buildSettings() {
         configSave();
     }, LV_EVENT_VALUE_CHANGED, nullptr);
 
+    // Web interface switch (on-screen only, so remote config can't lock itself out)
+    lv_obj_t *lw = lv_label_create(scrSettings);
+    lv_label_set_text(lw, "Web interface");
+    lv_obj_align(lw, LV_ALIGN_TOP_LEFT, PAD, y0 + rowH * 3 + 6);
+    lv_obj_t *swWeb = lv_switch_create(scrSettings);
+    lv_obj_align(swWeb, LV_ALIGN_TOP_RIGHT, -PAD, y0 + rowH * 3);
+    if (config.webUiEnabled) lv_obj_add_state(swWeb, LV_STATE_CHECKED);
+    lv_obj_add_event_cb(swWeb, [](lv_event_t *e) {
+        config.webUiEnabled = lv_obj_has_state(lv_event_get_target(e), LV_STATE_CHECKED);
+        configSave(); // webuiLoop applies it on the next tick
+    }, LV_EVENT_VALUE_CHANGED, nullptr);
+
     // Buttons row: update check + wifi portal
-    const int btnRowY = y0 + rowH * 3 + 4;
+    const int btnRowY = y0 + rowH * 4 + 4;
     const int halfW = (W - PAD * 3) / 2;
     lv_obj_t *btnUpd = lv_btn_create(scrSettings);
     styleBtn(btnUpd);
@@ -539,7 +551,10 @@ void uiUpdate() {
     if (netMode() == NetMode::PORTAL) {
         snprintf(statusTxt, sizeof(statusTxt), "Setup: join WiFi '%s', open http://%s", netApName(), netIp().c_str());
     } else if (!ps.wantPlaying) {
-        snprintf(statusTxt, sizeof(statusTxt), "Stopped  •  config at http://%s", netIp().c_str());
+        if (config.webUiEnabled)
+            snprintf(statusTxt, sizeof(statusTxt), "Stopped  •  config at http://%s", netIp().c_str());
+        else
+            snprintf(statusTxt, sizeof(statusTxt), "Stopped  •  web interface off");
     } else {
         // "2/3 stream.example.com/live · 128 kbps", scheme stripped to save width
         const char *u = ps.currentUrl;
