@@ -17,6 +17,7 @@ void netBegin() {
         return;
     }
     WiFi.mode(WIFI_STA);
+    WiFi.setSleep(false); // modem power-save starves streaming downloads; keep the radio awake
     WiFi.setAutoReconnect(true);
     WiFi.begin(config.wifiSsid.c_str(), config.wifiPass.c_str());
     mode = NetMode::CONNECTING;

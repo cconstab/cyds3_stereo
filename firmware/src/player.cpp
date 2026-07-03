@@ -57,8 +57,12 @@ static void publishStatus() {
     uint16_t vu = audio.getVUlevel();
     status.vuLeft = vu >> 8;
     status.vuRight = vu & 0xFF;
-    uint32_t bufSize = audio.inBufferSize();
-    status.bufferPct = bufSize ? (uint8_t)((uint64_t)audio.inBufferFilled() * 100 / bufSize) : 0;
+    // Scale the buffer gauge to a 5-second playback window, not the full 655KB
+    // PSRAM ring (live servers only ever send a few seconds ahead, so a
+    // total-capacity gauge would sit near zero forever).
+    uint32_t bitrate = status.bitrate ? status.bitrate : 128000;
+    uint32_t fiveSecBytes = bitrate / 8 * 5;
+    status.bufferPct = (uint8_t)min<uint64_t>(100, (uint64_t)audio.inBufferFilled() * 100 / fiveSecBytes);
     xSemaphoreGive(statusMutex);
 }
 
