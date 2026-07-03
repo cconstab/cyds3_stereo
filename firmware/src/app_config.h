@@ -26,6 +26,7 @@ struct AppConfig {
 
     // Web interface (always forced on while in provisioning/hotspot mode)
     bool webUiEnabled = true;
+    String webUiPassword; // empty = no auth; else HTTP basic auth (user "admin")
 
     // OTA
     String otaBaseUrl; // e.g. http://192.168.1.50:8080

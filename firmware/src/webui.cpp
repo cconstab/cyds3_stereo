@@ -53,6 +53,7 @@ small{color:#888}label{display:block;margin-top:8px}
 <label><input type=checkbox id=speakersEnabled style="width:auto"> External speakers (line-out always on)</label>
 <label><input type=checkbox id=autoPlay style="width:auto"> Auto-play on boot</label>
 <label><input type=checkbox id=bootSelfTest style="width:auto"> Display self-test at power-on (diagnostic)</label>
+<label>Web password (optional)<input id=webUiPassword type=password placeholder="(none)"></label>
 <label>Brightness %<input type=number id=brightness min=5 max=100></label>
 
 <h2>Firmware</h2>
@@ -83,6 +84,7 @@ function load(){fetch('/api/config').then(r=>r.json()).then(c=>{
  for(const k of ['stationName','wifiSsid','otaBaseUrl','brightness'])$(k).value=c[k]??'';
  $('streamUrls').value=(c.streamUrls||[]).join('\n');
  for(const k of ['speakersEnabled','onboardSpeaker','autoPlay','autoUpdate','bootSelfTest'])$(k).checked=!!c[k];
+ $('webUiPassword').placeholder=c.webUiPasswordSet?"(set — type new, or 'off' to remove)":"(none — type to set)";
 })}
 function save(){
  const body={stationName:$('stationName').value,wifiSsid:$('wifiSsid').value,
@@ -91,6 +93,8 @@ function save(){
   autoUpdate:$('autoUpdate').checked,bootSelfTest:$('bootSelfTest').checked,brightness:+$('brightness').value,
   otaBaseUrl:$('otaBaseUrl').value};
  if($('wifiPass').value)body.wifiPass=$('wifiPass').value;
+ const wp=$('webUiPassword').value;
+ if(wp)body.webUiPassword=(wp==='off'?'':wp);
  fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
   .then(r=>r.json()).then(r=>{$('msg').textContent=r.ok?'Saved.':'Error saving';setTimeout(()=>$('msg').textContent='',3000)});
 }
@@ -178,12 +182,24 @@ static void handleAction() {
 
 static bool serverRunning = false;
 
+// Optional basic auth. Skipped in portal mode: reaching the AP implies
+// physical proximity, and captive-portal browsers handle auth prompts badly.
+static bool checkAuth() {
+    if (config.webUiPassword.isEmpty() || netMode() == NetMode::PORTAL) return true;
+    if (server.authenticate("admin", config.webUiPassword.c_str())) return true;
+    server.requestAuthentication(BASIC_AUTH, "CYD-S3 Stereo");
+    return false;
+}
+
 void webuiBegin() {
-    server.on("/", HTTP_GET, []() { server.send_P(200, "text/html", PAGE); });
-    server.on("/api/status", HTTP_GET, handleStatus);
-    server.on("/api/config", HTTP_GET, handleConfigGet);
-    server.on("/api/config", HTTP_POST, handleConfigPost);
-    server.on("/api/action", HTTP_GET, handleAction);
+    server.on("/", HTTP_GET, []() {
+        if (!checkAuth()) return;
+        server.send_P(200, "text/html", PAGE);
+    });
+    server.on("/api/status", HTTP_GET, []() { if (checkAuth()) handleStatus(); });
+    server.on("/api/config", HTTP_GET, []() { if (checkAuth()) handleConfigGet(); });
+    server.on("/api/config", HTTP_POST, []() { if (checkAuth()) handleConfigPost(); });
+    server.on("/api/action", HTTP_GET, []() { if (checkAuth()) handleAction(); });
     // Captive-portal probes -> redirect to our page
     server.onNotFound([]() {
         if (netMode() == NetMode::PORTAL) {

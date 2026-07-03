@@ -37,6 +37,8 @@ String configToJson(bool includeSecrets) {
     doc["brightness"] = config.brightness;
     doc["bootSelfTest"] = config.bootSelfTest;
     doc["webUiEnabled"] = config.webUiEnabled;
+    if (includeSecrets) doc["webUiPassword"] = config.webUiPassword;
+    doc["webUiPasswordSet"] = config.webUiPassword.length() > 0;
     doc["otaBaseUrl"] = config.otaBaseUrl;
     doc["autoUpdate"] = config.autoUpdate;
     doc["otaCheckMinutes"] = config.otaCheckMinutes;
@@ -68,6 +70,7 @@ bool configFromJson(const String &json) {
     if (doc["brightness"].is<int>()) config.brightness = constrain(doc["brightness"].as<int>(), 5, 100);
     if (doc["bootSelfTest"].is<bool>()) config.bootSelfTest = doc["bootSelfTest"];
     if (doc["webUiEnabled"].is<bool>()) config.webUiEnabled = doc["webUiEnabled"];
+    if (doc["webUiPassword"].is<const char *>()) config.webUiPassword = doc["webUiPassword"].as<String>();
     if (doc["otaBaseUrl"].is<const char *>()) {
         config.otaBaseUrl = doc["otaBaseUrl"].as<String>();
         if (config.otaBaseUrl.endsWith("/")) config.otaBaseUrl.remove(config.otaBaseUrl.length() - 1);
