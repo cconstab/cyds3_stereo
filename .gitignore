@@ -3,3 +3,9 @@ web-installer/stage/
 update-server/node_modules/
 update-server/data/
 .DS_Store
+
+# never commit build artifacts anywhere
+*.bin
+*.elf
+*.map
+__pycache__/
