@@ -285,14 +285,21 @@ void uiUpdate() {
     }
     lv_label_set_text(lblWifi, wifiTxt);
 
-    char statusTxt[160];
+    char statusTxt[224];
     if (netMode() == NetMode::PORTAL) {
         snprintf(statusTxt, sizeof(statusTxt), "Setup: join WiFi '%s', open http://%s", netApName(), netIp().c_str());
+    } else if (!ps.wantPlaying) {
+        snprintf(statusTxt, sizeof(statusTxt), "Stopped  ·  config at http://%s", netIp().c_str());
     } else {
-        snprintf(statusTxt, sizeof(statusTxt), "%s  ·  URL %d/%d  ·  %lu kbps  ·  http://%s",
-                 ps.playing ? "PLAYING" : (ps.wantPlaying ? "RECONNECTING…" : "STOPPED"),
-                 ps.urlCount ? ps.urlIndex + 1 : 0, ps.urlCount,
-                 (unsigned long)(ps.bitrate / 1000), netIp().c_str());
+        // "2/3 stream.example.com/live · 128 kbps", scheme stripped to save width
+        const char *u = ps.currentUrl;
+        if (!strncmp(u, "https://", 8)) u += 8;
+        else if (!strncmp(u, "http://", 7)) u += 7;
+        char rate[24] = "";
+        if (ps.bitrate) snprintf(rate, sizeof(rate), "  ·  %lu kbps", (unsigned long)(ps.bitrate / 1000));
+        snprintf(statusTxt, sizeof(statusTxt), "%d/%d %s%s%s",
+                 ps.urlCount ? ps.urlIndex + 1 : 0, ps.urlCount, u, rate,
+                 ps.playing ? "" : "  ·  reconnecting…");
     }
     lv_label_set_text(lblStatus, statusTxt);
 

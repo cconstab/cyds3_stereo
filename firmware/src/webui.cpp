@@ -71,7 +71,7 @@ function act(a){fetch('/api/action?do='+a).then(()=>setTimeout(poll,300))}
 function poll(){fetch('/api/status').then(r=>r.json()).then(s=>{
  $('station').textContent=s.station||s.stationName||'—';
  $('title').textContent=s.title||'—';
- $('urlinfo').textContent=s.urlCount?('URL '+(s.urlIndex+1)+'/'+s.urlCount):'';
+ $('urlinfo').textContent=s.urlCount?('URL '+(s.urlIndex+1)+'/'+s.urlCount+(s.currentUrl?' — '+s.currentUrl.replace(/^https?:\/\//,''):'')):'';
  $('vul').style.width=(s.vuLeft/127*100)+'%';$('vur').style.width=(s.vuRight/127*100)+'%';
  $('stat').innerHTML=(s.playing?'<span class=ok>playing</span>':'<span class=bad>stopped</span>')
   +' · '+(s.bitrate?Math.round(s.bitrate/1000)+' kbps':'')+' · buffer '+s.bufferPct+'% · wifi '+s.rssi+' dBm · reconnects '+s.reconnects;
@@ -108,6 +108,7 @@ static void handleStatus() {
     doc["title"] = ps.title;
     doc["urlIndex"] = ps.urlIndex;
     doc["urlCount"] = ps.urlCount;
+    doc["currentUrl"] = ps.currentUrl;
     doc["bitrate"] = ps.bitrate;
     doc["vuLeft"] = ps.vuLeft;
     doc["vuRight"] = ps.vuRight;

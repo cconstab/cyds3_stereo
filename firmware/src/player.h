@@ -14,6 +14,7 @@ struct PlayerStatus {
     uint32_t reconnects = 0;
     char station[64] = "";
     char title[128] = "";
+    char currentUrl[160] = "";
     char lastError[96] = "";
 };
 

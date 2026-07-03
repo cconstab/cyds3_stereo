@@ -34,6 +34,8 @@ static uint32_t lastAudioTime = 0;
 static uint32_t connectStartedMs = 0;
 static bool connecting = false;
 
+static uint32_t icyBitrate = 0; // from the audio_bitrate callback (icy-br header)
+
 static const uint32_t STALL_TIMEOUT_MS = 12000;   // no decode progress -> reconnect
 static const uint32_t CONNECT_TIMEOUT_MS = 15000; // no playback after connect -> next URL
 static const uint32_t BACKOFF_MAX_MS = 30000;
@@ -54,6 +56,7 @@ static void publishStatus() {
     status.urlIndex = urlIndex;
     status.urlCount = urls.size();
     status.bitrate = audio.getBitRate(true);
+    if (!status.bitrate) status.bitrate = icyBitrate; // AAC/ICY streams often only report via header
     uint16_t vu = audio.getVUlevel();
     status.vuLeft = vu >> 8;
     status.vuRight = vu & 0xFF;
@@ -79,6 +82,10 @@ static void startCurrentUrl() {
     }
     urlIndex %= urls.size();
     Serial.printf("[player] connecting to URL %d/%d: %s\n", urlIndex + 1, urls.size(), urls[urlIndex].c_str());
+    xSemaphoreTake(statusMutex, portMAX_DELAY);
+    strlcpy(status.currentUrl, urls[urlIndex].c_str(), sizeof(status.currentUrl));
+    xSemaphoreGive(statusMutex);
+    icyBitrate = 0; // don't carry a stale rate across URLs
     audio.stopSong();
     connecting = true;
     connectStartedMs = millis();
@@ -281,6 +288,11 @@ void audio_showstreamtitle(const char *info) {
     xSemaphoreTake(statusMutex, portMAX_DELAY);
     strlcpy(status.title, info, sizeof(status.title));
     xSemaphoreGive(statusMutex);
+}
+
+void audio_bitrate(const char *info) {
+    icyBitrate = strtoul(info, nullptr, 10);
+    if (icyBitrate && icyBitrate < 10000) icyBitrate *= 1000; // icy-br is in kbps
 }
 
 void audio_eof_stream(const char *info) {
