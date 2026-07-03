@@ -28,8 +28,21 @@ static void flushCb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *pixel
     lv_disp_flush_ready(drv);
 }
 
+static bool screenOff = false;
+static uint32_t wakeGraceUntil = 0;
+
 static void touchCb(lv_indev_drv_t *, lv_indev_data_t *data) {
     FT6336U_TouchPointType tp = ctp.scan();
+    // Screen off: the first touch only wakes the display — swallow it (and a short
+    // grace window) so the wake tap can't press whatever widget is underneath.
+    if (screenOff || millis() < wakeGraceUntil) {
+        if (tp.touch_count > 0 && screenOff) {
+            displayScreenWake();
+            wakeGraceUntil = millis() + 400;
+        }
+        data->state = LV_INDEV_STATE_RELEASED;
+        return;
+    }
     if (tp.touch_count > 0) {
         // Panel native orientation is portrait 320x480; map to landscape rotation 1.
         uint16_t rawX = tp.tp[0].x; // 0..319
@@ -110,9 +123,22 @@ void displayBegin() {
 }
 
 void displaySetBrightness(uint8_t pct) {
+    if (screenOff) return; // applied on wake instead
     pct = constrain(pct, 5, 100);
     ledcWrite(PIN_LCD_BL, (uint32_t)pct * 255 / 100);
 }
+
+void displayScreenOff() {
+    screenOff = true;
+    ledcWrite(PIN_LCD_BL, 0);
+}
+
+void displayScreenWake() {
+    screenOff = false;
+    displaySetBrightness(config.brightness);
+}
+
+bool displayScreenIsOff() { return screenOff; }
 
 void displayLoop() {
     lv_timer_handler();

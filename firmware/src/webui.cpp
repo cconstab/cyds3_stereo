@@ -5,6 +5,7 @@
 #include "player.h"
 #include "net.h"
 #include "ota.h"
+#include "display_lvgl.h"
 #include <WebServer.h>
 #include <WiFi.h>
 #include <ArduinoJson.h>
@@ -37,6 +38,8 @@ small{color:#888}label{display:block;margin-top:8px}
  <button onclick="act('play')">Play</button>
  <button class=alt onclick="act('stop')">Stop</button>
  <button class=alt onclick="act('next')">Next URL</button>
+ <button class=alt onclick="act('screenoff')">Screen off</button>
+ <button class=alt onclick="act('screenon')">Screen on</button>
 </div>
 <label>Volume <span id=volv></span><input type=range min=0 max=21 id=vol onchange="act('volume&value='+this.value)"></label>
 
@@ -138,6 +141,7 @@ static void handleConfigGet() {
 static void handleConfigPost() {
     String prevSsid = config.wifiSsid, prevPass = config.wifiPass;
     uint8_t prevVol = config.volume;
+    uint8_t prevBright = config.brightness;
     bool prevSpeakers = config.speakersEnabled;
     bool prevOnboard = config.onboardSpeaker;
 
@@ -152,6 +156,7 @@ static void handleConfigPost() {
     if (config.volume != prevVol) playerSetVolume(config.volume);
     if (config.speakersEnabled != prevSpeakers) playerSetSpeakers(config.speakersEnabled);
     if (config.onboardSpeaker != prevOnboard) playerSetOnboardSpeaker(config.onboardSpeaker);
+    if (config.brightness != prevBright) displaySetBrightness(config.brightness);
     if (config.wifiSsid != prevSsid || config.wifiPass != prevPass) {
         // Apply new WiFi credentials after the response goes out
         delay(500);
@@ -170,7 +175,9 @@ static void handleAction() {
         config.volume = constrain(server.arg("value").toInt(), 0, 21);
         playerSetVolume(config.volume);
         configSave();
-    } else if (a == "checkupdate") otaCheckNow(true);
+    } else if (a == "screenoff") displayScreenOff();
+    else if (a == "screenon") displayScreenWake();
+    else if (a == "checkupdate") otaCheckNow(true);
     else if (a == "reboot") {
         server.send(200, "application/json", "{\"ok\":true}");
         delay(300);

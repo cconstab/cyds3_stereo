@@ -444,11 +444,11 @@ static void buildSettings() {
     lv_label_set_text(wl, LV_SYMBOL_WIFI " WiFi setup");
     lv_obj_center(wl);
 
-    // Second row: station URL editor
+    // Second row: station URL editor + screen off
     const int btnRowY2 = btnRowY + rowH + 8;
     lv_obj_t *btnUrls = lv_btn_create(scrSettings);
     styleBtn(btnUrls);
-    lv_obj_set_size(btnUrls, W - PAD * 2, rowH);
+    lv_obj_set_size(btnUrls, halfW, rowH);
     lv_obj_align(btnUrls, LV_ALIGN_TOP_LEFT, PAD, btnRowY2);
     lv_obj_add_event_cb(btnUrls, [](lv_event_t *) {
         String all;
@@ -459,8 +459,17 @@ static void buildSettings() {
         openEditor(ET_URLS, "Stream URLs (one per line)", all.c_str(), false);
     }, LV_EVENT_CLICKED, nullptr);
     lv_obj_t *ul2 = lv_label_create(btnUrls);
-    lv_label_set_text(ul2, LV_SYMBOL_LIST " Edit station URLs");
+    lv_label_set_text(ul2, LV_SYMBOL_LIST " Stations");
     lv_obj_center(ul2);
+
+    lv_obj_t *btnScreen = lv_btn_create(scrSettings);
+    styleBtn(btnScreen);
+    lv_obj_set_size(btnScreen, halfW, rowH);
+    lv_obj_align(btnScreen, LV_ALIGN_TOP_LEFT, PAD * 2 + halfW, btnRowY2);
+    lv_obj_add_event_cb(btnScreen, [](lv_event_t *) { displayScreenOff(); }, LV_EVENT_CLICKED, nullptr);
+    lv_obj_t *sl2 = lv_label_create(btnScreen);
+    lv_label_set_text(sl2, LV_SYMBOL_EYE_CLOSE " Screen off");
+    lv_obj_center(sl2);
 
     lblOta = lv_label_create(scrSettings);
     lv_obj_set_style_text_font(lblOta, &lv_font_montserrat_12, 0);
