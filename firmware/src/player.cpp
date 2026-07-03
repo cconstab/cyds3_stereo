@@ -36,6 +36,24 @@ static bool connecting = false;
 
 static uint32_t icyBitrate = 0; // from the audio_bitrate callback (icy-br header)
 
+// RMS VU metering in dB. The library's own getVUlevel() is peak-biased, and
+// internet radio is compressed with peaks pinned near full scale, so a peak
+// meter just slams the top. RMS over each 30ms status window, mapped
+// logarithmically (-42dB..0dB -> 0..127), moves the way studio meters do.
+// Accumulated in audio_process_i2s and consumed in publishStatus — both run
+// on the audio task, so plain statics are safe.
+static uint64_t vuAccL = 0, vuAccR = 0;
+static uint32_t vuFrames = 0;
+
+static uint8_t rmsTakeVu(uint64_t acc) {
+    if (!vuFrames) return 0;
+    float rms = sqrtf((float)(acc / vuFrames)) / 32768.0f;
+    if (rms < 1e-4f) return 0;
+    float db = 20.0f * log10f(rms);
+    float pct = (db + 42.0f) / 42.0f;
+    return (uint8_t)(constrain(pct, 0.0f, 1.0f) * 127.0f);
+}
+
 static const uint32_t STALL_TIMEOUT_MS = 12000;   // no decode progress -> reconnect
 static const uint32_t CONNECT_TIMEOUT_MS = 15000; // no playback after connect -> next URL
 static const uint32_t BACKOFF_MAX_MS = 30000;
@@ -57,9 +75,10 @@ static void publishStatus() {
     status.urlCount = urls.size();
     status.bitrate = audio.getBitRate(true);
     if (!status.bitrate) status.bitrate = icyBitrate; // AAC/ICY streams often only report via header
-    uint16_t vu = audio.getVUlevel();
-    status.vuLeft = vu >> 8;
-    status.vuRight = vu & 0xFF;
+    status.vuLeft = rmsTakeVu(vuAccL);
+    status.vuRight = rmsTakeVu(vuAccR);
+    vuAccL = vuAccR = 0;
+    vuFrames = 0;
     // Scale the buffer gauge to a 5-second playback window, not the full 655KB
     // PSRAM ring (live servers only ever send a few seconds ahead, so a
     // total-capacity gauge would sit near zero forever).
@@ -295,6 +314,18 @@ void audio_showstreamtitle(const char *info) {
     xSemaphoreTake(statusMutex, portMAX_DELAY);
     strlcpy(status.title, info, sizeof(status.title));
     xSemaphoreGive(statusMutex);
+}
+
+// Called by the library with each decoded PCM block before it goes to I2S.
+void audio_process_i2s(int16_t *buff, uint16_t validSamples, uint8_t bitsPerSample, uint8_t channels, bool *continueI2S) {
+    *continueI2S = true;
+    if (bitsPerSample != 16 || channels != 2) return;
+    for (uint16_t i = 0; i < validSamples; i++) {
+        int32_t l = buff[2 * i], r = buff[2 * i + 1];
+        vuAccL += (uint64_t)((int64_t)l * l);
+        vuAccR += (uint64_t)((int64_t)r * r);
+    }
+    vuFrames += validSamples;
 }
 
 void audio_bitrate(const char *info) {
