@@ -58,11 +58,27 @@ static void mkVuRow(lv_obj_t *parent, lv_obj_t **segs, int x, int y, int totalW,
     }
 }
 
-static void setVuLevel(lv_obj_t **segs, uint8_t level /*0..127*/) {
+static void setVuLevel(lv_obj_t **segs, uint8_t level, uint8_t peak) {
     int lit = (level * VU_SEGS + 63) / 127;
+    int peakIdx = (peak * VU_SEGS + 63) / 127 - 1; // lingering peak-hold segment
     for (int i = 0; i < VU_SEGS; i++) {
-        lv_obj_set_style_bg_opa(segs[i], i < lit ? LV_OPA_COVER : LV_OPA_20, 0);
+        bool on = i < lit || (i == peakIdx && peakIdx >= lit);
+        lv_obj_set_style_bg_opa(segs[i], on ? LV_OPA_COVER : LV_OPA_20, 0);
     }
+}
+
+// Muted styling — the theme's default blue is too loud for a dark dashboard.
+static void styleBtn(lv_obj_t *btn) {
+    lv_obj_set_style_bg_color(btn, lv_color_hex(0x263241), 0);
+    lv_obj_set_style_bg_color(btn, lv_color_hex(0x33455c), LV_STATE_PRESSED);
+    lv_obj_set_style_shadow_width(btn, 0, 0);
+}
+
+static void styleSlider(lv_obj_t *slider) {
+    lv_obj_set_style_bg_color(slider, lv_color_hex(0x1a2029), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(slider, lv_color_hex(0x475569), LV_PART_INDICATOR);
+    lv_obj_set_style_bg_color(slider, lv_color_hex(0x8494a8), LV_PART_KNOB);
+    lv_obj_set_style_pad_all(slider, 3, LV_PART_KNOB);
 }
 
 static void buildMain() {
@@ -129,6 +145,7 @@ static void buildMain() {
     // Controls row
     auto mkBtn = [&](const char *txt, int x, lv_event_cb_t cb) {
         lv_obj_t *btn = lv_btn_create(scrMain);
+        styleBtn(btn);
         lv_obj_set_size(btn, btnW, btnH);
         lv_obj_align(btn, LV_ALIGN_BOTTOM_LEFT, x, btnBottom);
         lv_obj_add_event_cb(btn, cb, LV_EVENT_CLICKED, nullptr);
@@ -148,6 +165,7 @@ static void buildMain() {
 
     // Volume slider
     sliderVol = lv_slider_create(scrMain);
+    styleSlider(sliderVol);
     lv_slider_set_range(sliderVol, 0, 21);
     lv_slider_set_value(sliderVol, config.volume, LV_ANIM_OFF);
     lv_obj_set_size(sliderVol, W - PAD * 2 - 8, big ? 14 : 10);
@@ -173,6 +191,7 @@ static void buildSettings() {
     lv_obj_align(title, LV_ALIGN_TOP_LEFT, PAD, 10);
 
     lv_obj_t *btnBack = lv_btn_create(scrSettings);
+    styleBtn(btnBack);
     lv_obj_set_size(btnBack, big ? 84 : 74, big ? 40 : 34);
     lv_obj_align(btnBack, LV_ALIGN_TOP_RIGHT, -PAD, 6);
     lv_obj_add_event_cb(btnBack, [](lv_event_t *) { lv_scr_load(scrMain); }, LV_EVENT_CLICKED, nullptr);
@@ -185,6 +204,7 @@ static void buildSettings() {
     lv_label_set_text(lb, "Brightness");
     lv_obj_align(lb, LV_ALIGN_TOP_LEFT, PAD, y0 + 4);
     sliderBright = lv_slider_create(scrSettings);
+    styleSlider(sliderBright);
     lv_slider_set_range(sliderBright, 5, 100);
     lv_slider_set_value(sliderBright, config.brightness, LV_ANIM_OFF);
     lv_obj_set_size(sliderBright, W - 130 - PAD * 2, 12);
@@ -228,6 +248,7 @@ static void buildSettings() {
     const int btnRowY = y0 + rowH * 3 + 4;
     const int halfW = (W - PAD * 3) / 2;
     lv_obj_t *btnUpd = lv_btn_create(scrSettings);
+    styleBtn(btnUpd);
     lv_obj_set_size(btnUpd, halfW, rowH);
     lv_obj_align(btnUpd, LV_ALIGN_TOP_LEFT, PAD, btnRowY);
     lv_obj_add_event_cb(btnUpd, [](lv_event_t *) { otaCheckNow(true); }, LV_EVENT_CLICKED, nullptr);
@@ -236,9 +257,9 @@ static void buildSettings() {
     lv_obj_center(ul);
 
     lv_obj_t *btnWifi = lv_btn_create(scrSettings);
+    styleBtn(btnWifi);
     lv_obj_set_size(btnWifi, halfW, rowH);
     lv_obj_align(btnWifi, LV_ALIGN_TOP_LEFT, PAD * 2 + halfW, btnRowY);
-    lv_obj_set_style_bg_color(btnWifi, lv_color_hex(0x374151), 0);
     lv_obj_add_event_cb(btnWifi, [](lv_event_t *) {
         playerStop();
         netStartPortal();
@@ -277,16 +298,35 @@ void uiBegin() {
     displaySetBrightness(config.brightness);
 }
 
-// VU with meter ballistics: instant attack, ~0.5s full-scale decay at a 30ms tick.
+// VU with meter ballistics: instant attack, ~0.5s full-scale decay, and a
+// peak-hold segment that lingers ~1s before sliding down.
+struct VuChannel {
+    float disp = 0;
+    float peak = 0;
+    uint32_t holdUntil = 0;
+};
+
+static void vuStep(VuChannel &ch, uint8_t raw, uint32_t now) {
+    const float DECAY = 8.0f;      // bar fall per 30ms tick
+    const float PEAK_DECAY = 3.0f; // peak-dot fall after the hold expires
+    ch.disp = (raw >= ch.disp) ? raw : fmaxf((float)raw, ch.disp - DECAY);
+    if (ch.disp >= ch.peak) {
+        ch.peak = ch.disp;
+        ch.holdUntil = now + 1000;
+    } else if (now > ch.holdUntil) {
+        ch.peak = fmaxf(ch.disp, ch.peak - PEAK_DECAY);
+    }
+}
+
 void uiUpdateVu() {
     uint8_t l, r;
     playerGetVu(l, r);
-    static float dispL = 0, dispR = 0;
-    const float DECAY = 8.0f;
-    dispL = (l >= dispL) ? l : fmaxf((float)l, dispL - DECAY);
-    dispR = (r >= dispR) ? r : fmaxf((float)r, dispR - DECAY);
-    setVuLevel(vuSegL, (uint8_t)dispL);
-    setVuLevel(vuSegR, (uint8_t)dispR);
+    static VuChannel chL, chR;
+    uint32_t now = millis();
+    vuStep(chL, l, now);
+    vuStep(chR, r, now);
+    setVuLevel(vuSegL, (uint8_t)chL.disp, (uint8_t)chL.peak);
+    setVuLevel(vuSegR, (uint8_t)chR.disp, (uint8_t)chR.peak);
 }
 
 void uiUpdate() {
