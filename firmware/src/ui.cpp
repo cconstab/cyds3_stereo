@@ -21,7 +21,8 @@ static lv_obj_t *lblStation;
 static lv_obj_t *lblTitle;
 static lv_obj_t *lblWifi;
 static lv_obj_t *lblStatus;
-static lv_obj_t *barVuL, *barVuR;
+static const int VU_SEGS = 24;
+static lv_obj_t *vuSegL[VU_SEGS], *vuSegR[VU_SEGS];
 static lv_obj_t *barBuffer;
 static lv_obj_t *btnPlayLabel;
 static lv_obj_t *sliderVol;
@@ -35,12 +36,33 @@ static lv_obj_t *lblOta;
 
 static bool lastPlaying = false;
 
-static void styleVu(lv_obj_t *bar) {
-    lv_obj_set_style_bg_color(bar, lv_color_hex(0x202020), LV_PART_MAIN);
-    lv_obj_set_style_bg_color(bar, lv_color_hex(0x22c55e), LV_PART_INDICATOR);
-    lv_obj_set_style_radius(bar, 3, LV_PART_MAIN);
-    lv_obj_set_style_radius(bar, 3, LV_PART_INDICATOR);
-    lv_bar_set_range(bar, 0, 127);
+// Classic LED VU: green -> amber -> red segments, unlit ones glow dimly.
+static lv_color_t vuSegColor(int i) {
+    if (i >= VU_SEGS * 85 / 100) return lv_color_hex(0xef4444); // top 15%: red
+    if (i >= VU_SEGS * 60 / 100) return lv_color_hex(0xf59e0b); // 60-85%: amber
+    return lv_color_hex(0x22c55e);                              // rest: green
+}
+
+static void mkVuRow(lv_obj_t *parent, lv_obj_t **segs, int x, int y, int totalW, int h) {
+    const int gap = 2;
+    const int segW = (totalW - gap * (VU_SEGS - 1)) / VU_SEGS;
+    for (int i = 0; i < VU_SEGS; i++) {
+        lv_obj_t *s = lv_obj_create(parent);
+        lv_obj_remove_style_all(s);
+        lv_obj_set_size(s, segW, h);
+        lv_obj_set_pos(s, x + i * (segW + gap), y);
+        lv_obj_set_style_radius(s, 2, 0);
+        lv_obj_set_style_bg_color(s, vuSegColor(i), 0);
+        lv_obj_set_style_bg_opa(s, LV_OPA_20, 0);
+        segs[i] = s;
+    }
+}
+
+static void setVuLevel(lv_obj_t **segs, uint8_t level /*0..127*/) {
+    int lit = (level * VU_SEGS + 63) / 127;
+    for (int i = 0; i < VU_SEGS; i++) {
+        lv_obj_set_style_bg_opa(segs[i], i < lit ? LV_OPA_COVER : LV_OPA_20, 0);
+    }
 }
 
 static void buildMain() {
@@ -75,24 +97,18 @@ static void buildMain() {
     lv_obj_set_width(lblTitle, W - PAD * 2);
     lv_label_set_long_mode(lblTitle, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_obj_align(lblTitle, LV_ALIGN_TOP_LEFT, PAD, titleY);
-    lv_label_set_text(lblTitle, "—");
+    lv_label_set_text(lblTitle, "-");
 
     // VU meters
     lv_obj_t *lblL = lv_label_create(scrMain);
     lv_label_set_text(lblL, "L");
     lv_obj_align(lblL, LV_ALIGN_TOP_LEFT, PAD, vuY + 2);
-    barVuL = lv_bar_create(scrMain);
-    lv_obj_set_size(barVuL, barW, vuH);
-    lv_obj_align(barVuL, LV_ALIGN_TOP_LEFT, PAD + 24, vuY);
-    styleVu(barVuL);
+    mkVuRow(scrMain, vuSegL, PAD + 24, vuY, barW, vuH);
 
     lv_obj_t *lblR = lv_label_create(scrMain);
     lv_label_set_text(lblR, "R");
     lv_obj_align(lblR, LV_ALIGN_TOP_LEFT, PAD, vuY + vuGap + 2);
-    barVuR = lv_bar_create(scrMain);
-    lv_obj_set_size(barVuR, barW, vuH);
-    lv_obj_align(barVuR, LV_ALIGN_TOP_LEFT, PAD + 24, vuY + vuGap);
-    styleVu(barVuR);
+    mkVuRow(scrMain, vuSegR, PAD + 24, vuY + vuGap, barW, vuH);
 
     // Buffer + status line
     barBuffer = lv_bar_create(scrMain);
@@ -108,7 +124,7 @@ static void buildMain() {
     lv_obj_set_width(lblStatus, W - PAD * 2);
     lv_label_set_long_mode(lblStatus, LV_LABEL_LONG_DOT);
     lv_obj_align(lblStatus, LV_ALIGN_TOP_LEFT, PAD, vuY + vuGap * 2 + 12);
-    lv_label_set_text(lblStatus, "starting…");
+    lv_label_set_text(lblStatus, "starting...");
 
     // Controls row
     auto mkBtn = [&](const char *txt, int x, lv_event_cb_t cb) {
@@ -265,12 +281,12 @@ void uiUpdate() {
     PlayerStatus ps;
     playerGetStatus(ps);
 
-    lv_bar_set_value(barVuL, ps.playing ? ps.vuLeft : 0, LV_ANIM_OFF);
-    lv_bar_set_value(barVuR, ps.playing ? ps.vuRight : 0, LV_ANIM_OFF);
+    setVuLevel(vuSegL, ps.playing ? ps.vuLeft : 0);
+    setVuLevel(vuSegR, ps.playing ? ps.vuRight : 0);
     lv_bar_set_value(barBuffer, ps.bufferPct, LV_ANIM_OFF);
 
     lv_label_set_text(lblStation, ps.station[0] ? ps.station : config.stationName.c_str());
-    lv_label_set_text(lblTitle, ps.title[0] ? ps.title : "—");
+    lv_label_set_text(lblTitle, ps.title[0] ? ps.title : "-");
 
     if (ps.wantPlaying != lastPlaying) {
         lastPlaying = ps.wantPlaying;
@@ -289,17 +305,17 @@ void uiUpdate() {
     if (netMode() == NetMode::PORTAL) {
         snprintf(statusTxt, sizeof(statusTxt), "Setup: join WiFi '%s', open http://%s", netApName(), netIp().c_str());
     } else if (!ps.wantPlaying) {
-        snprintf(statusTxt, sizeof(statusTxt), "Stopped  ·  config at http://%s", netIp().c_str());
+        snprintf(statusTxt, sizeof(statusTxt), "Stopped  •  config at http://%s", netIp().c_str());
     } else {
         // "2/3 stream.example.com/live · 128 kbps", scheme stripped to save width
         const char *u = ps.currentUrl;
         if (!strncmp(u, "https://", 8)) u += 8;
         else if (!strncmp(u, "http://", 7)) u += 7;
         char rate[24] = "";
-        if (ps.bitrate) snprintf(rate, sizeof(rate), "  ·  %lu kbps", (unsigned long)(ps.bitrate / 1000));
+        if (ps.bitrate) snprintf(rate, sizeof(rate), "  •  %lu kbps", (unsigned long)(ps.bitrate / 1000));
         snprintf(statusTxt, sizeof(statusTxt), "%d/%d %s%s%s",
                  ps.urlCount ? ps.urlIndex + 1 : 0, ps.urlCount, u, rate,
-                 ps.playing ? "" : "  ·  reconnecting…");
+                 ps.playing ? "" : "  •  reconnecting...");
     }
     lv_label_set_text(lblStatus, statusTxt);
 
@@ -307,11 +323,11 @@ void uiUpdate() {
     OtaState os;
     otaGetState(os);
     char otaTxt[128];
-    snprintf(otaTxt, sizeof(otaTxt), "Firmware update: %s%s", os.message, os.inProgress ? "…" : "");
+    snprintf(otaTxt, sizeof(otaTxt), "Firmware update: %s%s", os.message, os.inProgress ? "..." : "");
     lv_label_set_text(lblOta, otaTxt);
 
     char infoTxt[128];
-    snprintf(infoTxt, sizeof(infoTxt), "fw %s  ·  http://%s  ·  reconnects %lu",
+    snprintf(infoTxt, sizeof(infoTxt), "fw %s  •  http://%s  •  reconnects %lu",
              FW_VERSION, netIp().c_str(), (unsigned long)ps.reconnects);
     lv_label_set_text(lblInfo, infoTxt);
 }
