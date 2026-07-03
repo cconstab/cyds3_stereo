@@ -220,7 +220,7 @@ void playerBegin() {
     applySpeakers(config.speakersEnabled);
 
     pinMode(PIN_AMP_ENABLE, OUTPUT);
-    digitalWrite(PIN_AMP_ENABLE, LOW);
+    digitalWrite(PIN_AMP_ENABLE, HIGH); // amp in shutdown until the codec is ready
 
     cmdQueue = xQueueCreate(8, sizeof(Cmd));
     statusMutex = xSemaphoreCreateMutex();
@@ -236,14 +236,15 @@ void playerBegin() {
         playerSetOnboardSpeaker(config.onboardSpeaker);
     } else {
         Serial.println("[player] ES8311 init failed — onboard speaker unavailable");
-        digitalWrite(PIN_AMP_ENABLE, LOW);
+        digitalWrite(PIN_AMP_ENABLE, HIGH);
     }
 }
 
-// Core 1 only (I2C shared with touch): toggles codec mute + speaker amp enable.
+// Core 1 only (I2C shared with touch): toggles codec mute + speaker amp.
+// The SC8002B pin is SHUTDOWN (active high): LOW = amp on, HIGH = amp off.
 void playerSetOnboardSpeaker(bool enabled) {
     es8311_output_enable(enabled);
-    digitalWrite(PIN_AMP_ENABLE, enabled ? HIGH : LOW);
+    digitalWrite(PIN_AMP_ENABLE, enabled ? LOW : HIGH);
 }
 
 void playerGetStatus(PlayerStatus &out) {

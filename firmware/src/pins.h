@@ -18,7 +18,7 @@
 #define PIN_I2S_INT_DIN 6 // codec ADC -> ESP
 #define PIN_I2S_INT_WS 7
 #define PIN_I2S_INT_DOUT 8 // ESP -> codec DAC
-#define PIN_AMP_ENABLE 1   // onboard speaker amp enable (HIGH = on)
+#define PIN_AMP_ENABLE 1   // SC8002B SHUTDOWN, active high: LOW = amp on, HIGH = off
 
 // --- External stereo I2S bus (Extended IO connector) ---
 // Fans out to 2x MAX98357A (speakers) + PCM5102A (RCA line out) in parallel.
