@@ -1,0 +1,14 @@
+services:
+  update-server:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      # Set a real token before exposing this to anyone
+      UPLOAD_TOKEN: ${UPLOAD_TOKEN:-changeme}
+    volumes:
+      - firmware-data:/data
+    restart: unless-stopped
+
+volumes:
+  firmware-data:

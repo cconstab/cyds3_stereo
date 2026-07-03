@@ -1,0 +1,4 @@
+firmware/.pio/
+update-server/node_modules/
+update-server/data/
+.DS_Store

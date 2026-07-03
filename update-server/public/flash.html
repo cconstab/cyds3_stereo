@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CYD-S3 Stereo — Browser Flasher</title>
+<style>
+body{font-family:system-ui,sans-serif;background:#0f1115;color:#e5e7eb;max-width:680px;margin:0 auto;padding:24px}
+a{color:#60a5fa}
+ol li{margin:6px 0}
+esp-web-install-button{--esp-tools-button-color:#2563eb}
+small{color:#8b949e}
+</style>
+<script type="module" src="/vendor/esp-web-tools/web/install-button.js"></script>
+</head>
+<body>
+<h1>Flash a new board</h1>
+<p>Flashes the current published firmware to a factory-fresh Freenove FNK0104S over USB.
+Requires Chrome or Edge (Web Serial).</p>
+<ol>
+  <li>Connect the board with a <b>data-capable</b> USB-C cable.</li>
+  <li>If the board is brand new it should just work; if the connection fails, hold <b>BOOT</b>, tap <b>RESET</b>, release <b>BOOT</b>, then retry.</li>
+  <li>Click Connect, pick the serial port, and install.</li>
+</ol>
+<esp-web-install-button manifest="/flash/manifest.json"></esp-web-install-button>
+<p><small>After flashing, the device starts a WiFi access point named <b>CYD-Radio-xxxx</b>.
+Join it from a phone and the setup page opens (or browse to 192.168.4.1) to configure
+WiFi and stream URLs.</small></p>
+<p><a href="/">← Back to dashboard</a></p>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "name": "cyds3-update-server",
+  "version": "1.0.0",
+  "description": "Firmware OTA update server + browser flasher for CYD-S3 Stereo players",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/server.test.js"
+  },
+  "dependencies": {
+    "esp-web-tools": "^10.1.0",
+    "express": "^4.21.2",
+    "multer": "^2.0.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

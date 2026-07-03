@@ -1,0 +1,98 @@
+# Hardware Guide
+
+Resilient stereo internet-radio player built on the Freenove FNK0104S ESP32-S3 touch display.
+
+## Board: Freenove FNK0104S (4.0" variant)
+
+Chosen over the other FNK0104 variants after comparing the per-variant schematics in the
+[Freenove_ESP32_S3_Display repo](https://github.com/Freenove/Freenove_ESP32_S3_Display):
+
+| Variant | Display | Driver | Free GPIOs on external connectors | Verdict |
+|---|---|---|---|---|
+| FNK0104A/B | 2.8" 240x320 | ILI9341 | — | Screen too small for the VU-meter view |
+| FNK0104N | 3.5" 320x480 | ST77922 (QSPI) | GPIO 45, 46 only (both strapping pins) | QSPI display eats the spare pins; exotic driver |
+| **FNK0104S** | **4.0" 320x480** | **ST7796 (SPI)** | **GPIO 2, 3, 14, 21** | **Best-supported driver, most free pins** |
+
+### Key specs (verified from schematic + Freenove flashing scripts)
+
+- **MCU:** ESP32-S3R8 — dual-core 240 MHz, WiFi, **8 MB octal PSRAM**
+- **Flash:** **16 MB** (confirmed from `Upload_Xiaozhi_Bin/4.0inch/upload_xiaozhi_bin.py` in the Freenove repo, which also ships an OTA partition table) — comfortable for dual OTA app slots + LittleFS
+- **Display:** 4.0" IPS 320x480, ST7796, SPI
+- **Touch:** FT6336G capacitive, I2C
+- **Audio (onboard):** ES8311 codec (mono DAC) + SC8002B amp -> PH1.25 speaker connector.
+  I2S wired internally on GPIO 4 (MCLK), 5 (BCK), 7 (WS), 8 (DOUT), 6 (DIN); amp enable on GPIO 1.
+  The internal I2S bus is **not broken out** — external audio uses the S3's second I2S peripheral
+  on free GPIOs instead.
+- **Also onboard:** micro-SD slot (4-bit SDMMC), MEMS microphone, WS2812B RGB LED,
+  TP4054 LiPo charger + JST battery connector, USB-C (native USB — serial console does not
+  consume UART0), boot/reset keys
+- **External connectors:** UART (TXD0/RXD0 + 5V/GND), Extended IO (free GPIOs), I2C
+  (shared bus with touch + codec). Kit includes 2x 4P and 1x 2P cables that fit these.
+
+## Stereo audio add-ons
+
+The onboard ES8311 is a **mono** codec, so stereo comes from external I2S devices on a second
+I2S bus. All three boards below share the same three wires — I2S clock/data lines drive
+multiple listeners happily — giving speaker output and RCA line-out simultaneously.
+
+### Parts list
+
+| # | Part | Qty | ~Price | Notes |
+|---|---|---|---|---|
+| 1 | Freenove FNK0104S (4.0" touch) | 1 | ~$27 | Includes 4P/2P cables + one mono speaker |
+| 2 | MAX98357A I2S 3 W amp breakout (Adafruit #3006 or clone) | 2 | ~$6 ea | One jumpered Left, one Right |
+| 3 | Full-range speakers 4 Ω 3 W (enclosed) | 2 | ~$4–10 ea | Enclosures matter for sound |
+| 4 | PCM5102A DAC board ("GY-PCM5102" purple module) | 1 | ~$8 | 2.1 Vrms stereo line-out, 112 dB SNR |
+| 5 | 3.5mm-to-RCA stereo cable (or panel-mount RCA jack pair) | 1 | ~$5 | PCM5102A board has a 3.5mm jack; RCA jacks wire to its L/R/GND pads |
+| 6 | USB-C PSU 5 V / 3 A + data-capable USB-C cable | 1 | ~$10 | Board + display + both amps at volume needs headroom |
+| 7 | Perfboard/breadboard + jumpers / JST-PH pigtails | — | ~$5 | Amps mount here; board side uses included 4P cables |
+| 8 | Optional: ground-loop isolator (1:1 audio transformer, inline) | 1 | ~$10 | Only if hum appears when feeding grounded station gear |
+| 9 | Optional: 3.7 V LiPo w/ JST connector | 1 | ~$8 | Board has a charger onboard — battery backup for free |
+
+### Wiring
+
+One I2S bus fans out to all three audio boards in parallel. No soldering on the Freenove board —
+signals come off the external connectors via the included 4P cables.
+
+| FNK0104S pin | MAX98357A x2 | PCM5102A |
+|---|---|---|
+| GPIO 2 | BCLK | BCK |
+| GPIO 3 | LRC | LCK |
+| GPIO 21 | DIN | DIN |
+| 5 V | Vin | VIN |
+| GND | GND | GND |
+| spare GPIO (e.g. 14) | SD_MODE (mute control, optional) | — |
+
+Channel select on the amps: Amp A SD_MODE jumper = **Left**, Amp B = **Right**.
+
+PCM5102A one-time setup:
+
+- Tie **SCK to GND** (solder bridge on the purple board) so it generates its own master clock.
+- Verify the four config solder bridges are at defaults (FLT=normal, DEMP=off, XSMT=un-mute,
+  FMT=I2S) — boards usually ship correct.
+
+### Behavior notes
+
+- **Volume affects speakers and line-out together** — volume is applied digitally to the single
+  I2S stream. Fine for a station feed; if a fixed-level line-out with independent speaker volume
+  is ever needed, the S3's two I2S peripherals + remaining free GPIOs allow a split-bus design
+  later with no new board.
+- Firmware will expose a config toggle to mute the speaker amps (SD_MODE pins on a spare GPIO)
+  so the unit can run as a silent RCA feed.
+- The onboard mono speaker stays usable as a fallback/test output via the ES8311; its amp
+  (GPIO 1) is muted when the stereo pair is active.
+
+## First-power-up checklist (when parts arrive)
+
+1. Run Freenove's stock music demo — confirms display, touch, codec, WiFi all work.
+2. Continuity-check which Extended IO / aux connector pins carry GPIO 2/3/14/21 — the schematic's
+   connector labels are ambiguous about the exact pin-to-connector mapping (worst case, UART pins
+   GPIO 43/44 are also free since the console runs over native USB).
+3. Flash a 10-line I2S test sketch (sine sweep) to the external amps — confirms the stereo bus.
+
+## References
+
+- [FNK0104 store page](https://store.freenove.com/products/fnk0104)
+- [FNK0104 documentation](https://docs.freenove.com/projects/fnk0104/en/latest/index.html)
+- [Freenove_ESP32_S3_Display GitHub repo](https://github.com/Freenove/Freenove_ESP32_S3_Display)
+  — schematics in `Schematic/`, chip datasheets (ES8311, FT6336G, ST7796, …) in `Datasheet/`
