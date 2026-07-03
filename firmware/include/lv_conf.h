@@ -6,9 +6,10 @@
 #define LV_COLOR_DEPTH 16
 #define LV_COLOR_16_SWAP 0
 
-/* Static LVGL heap */
+/* Static LVGL heap — 4 screens incl. keyboard + 48 VU segments need headroom;
+ * OOM in LVGL hangs in an assert loop (blank screen), so keep this generous. */
 #define LV_MEM_CUSTOM 0
-#define LV_MEM_SIZE (64U * 1024U)
+#define LV_MEM_SIZE (96U * 1024U)
 
 /* Use Arduino millis() for ticks */
 #define LV_TICK_CUSTOM 1
