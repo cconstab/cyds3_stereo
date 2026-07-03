@@ -1,4 +1,5 @@
 // Touch UI (LVGL 8): Now Playing view with VU meters + a settings screen.
+// Layout adapts to the panel: 480x320 (FNK0104S) or 320x240 (FNK0104B).
 #include "ui.h"
 #include "app_config.h"
 #include "player.h"
@@ -6,6 +7,13 @@
 #include "ota.h"
 #include "display_lvgl.h"
 #include <lvgl.h>
+
+// Resolution-dependent metrics, set in uiBegin()
+static lv_coord_t W, H;
+static bool big;
+static const lv_font_t *fontBig;
+static const lv_font_t *fontMid;
+static const int PAD = 10;
 
 // ---- Now Playing screen ----
 static lv_obj_t *scrMain;
@@ -36,89 +44,98 @@ static void styleVu(lv_obj_t *bar) {
 }
 
 static void buildMain() {
+    const int titleY = big ? 52 : 40;
+    const int vuY = big ? 94 : 72;
+    const int vuH = big ? 22 : 16;
+    const int vuGap = big ? 32 : 22;
+    const int barW = W - PAD * 2 - 24;
+    const int btnW = big ? 72 : 60;
+    const int btnH = big ? 52 : 42;
+    const int volBottom = big ? -22 : -14;
+    const int btnBottom = volBottom - (big ? 36 : 28);
+
     scrMain = lv_obj_create(nullptr);
     lv_obj_set_style_bg_color(scrMain, lv_color_hex(0x0b0f14), 0);
 
     lblStation = lv_label_create(scrMain);
-    lv_obj_set_style_text_font(lblStation, &lv_font_montserrat_28, 0);
-    lv_obj_set_width(lblStation, 380);
+    lv_obj_set_style_text_font(lblStation, fontBig, 0);
+    lv_obj_set_width(lblStation, W - 110);
     lv_label_set_long_mode(lblStation, LV_LABEL_LONG_DOT);
-    lv_obj_align(lblStation, LV_ALIGN_TOP_LEFT, 12, 10);
+    lv_obj_align(lblStation, LV_ALIGN_TOP_LEFT, PAD, 8);
     lv_label_set_text(lblStation, "CYD-S3 Stereo");
 
     lblWifi = lv_label_create(scrMain);
-    lv_obj_set_style_text_font(lblWifi, &lv_font_montserrat_14, 0);
-    lv_obj_align(lblWifi, LV_ALIGN_TOP_RIGHT, -12, 16);
+    lv_obj_set_style_text_font(lblWifi, &lv_font_montserrat_12, 0);
+    lv_obj_align(lblWifi, LV_ALIGN_TOP_RIGHT, -PAD, 12);
     lv_label_set_text(lblWifi, LV_SYMBOL_WIFI " --");
 
     lblTitle = lv_label_create(scrMain);
-    lv_obj_set_style_text_font(lblTitle, &lv_font_montserrat_20, 0);
+    lv_obj_set_style_text_font(lblTitle, fontMid, 0);
     lv_obj_set_style_text_color(lblTitle, lv_color_hex(0x93c5fd), 0);
-    lv_obj_set_width(lblTitle, 456);
+    lv_obj_set_width(lblTitle, W - PAD * 2);
     lv_label_set_long_mode(lblTitle, LV_LABEL_LONG_SCROLL_CIRCULAR);
-    lv_obj_align(lblTitle, LV_ALIGN_TOP_LEFT, 12, 52);
+    lv_obj_align(lblTitle, LV_ALIGN_TOP_LEFT, PAD, titleY);
     lv_label_set_text(lblTitle, "—");
 
     // VU meters
     lv_obj_t *lblL = lv_label_create(scrMain);
     lv_label_set_text(lblL, "L");
-    lv_obj_align(lblL, LV_ALIGN_TOP_LEFT, 12, 96);
+    lv_obj_align(lblL, LV_ALIGN_TOP_LEFT, PAD, vuY + 2);
     barVuL = lv_bar_create(scrMain);
-    lv_obj_set_size(barVuL, 430, 22);
-    lv_obj_align(barVuL, LV_ALIGN_TOP_LEFT, 34, 94);
+    lv_obj_set_size(barVuL, barW, vuH);
+    lv_obj_align(barVuL, LV_ALIGN_TOP_LEFT, PAD + 24, vuY);
     styleVu(barVuL);
 
     lv_obj_t *lblR = lv_label_create(scrMain);
     lv_label_set_text(lblR, "R");
-    lv_obj_align(lblR, LV_ALIGN_TOP_LEFT, 12, 128);
+    lv_obj_align(lblR, LV_ALIGN_TOP_LEFT, PAD, vuY + vuGap + 2);
     barVuR = lv_bar_create(scrMain);
-    lv_obj_set_size(barVuR, 430, 22);
-    lv_obj_align(barVuR, LV_ALIGN_TOP_LEFT, 34, 126);
+    lv_obj_set_size(barVuR, barW, vuH);
+    lv_obj_align(barVuR, LV_ALIGN_TOP_LEFT, PAD + 24, vuY + vuGap);
     styleVu(barVuR);
 
     // Buffer + status line
     barBuffer = lv_bar_create(scrMain);
-    lv_obj_set_size(barBuffer, 430, 6);
-    lv_obj_align(barBuffer, LV_ALIGN_TOP_LEFT, 34, 158);
+    lv_obj_set_size(barBuffer, barW, 5);
+    lv_obj_align(barBuffer, LV_ALIGN_TOP_LEFT, PAD + 24, vuY + vuGap * 2);
     lv_bar_set_range(barBuffer, 0, 100);
     lv_obj_set_style_bg_color(barBuffer, lv_color_hex(0x202020), LV_PART_MAIN);
     lv_obj_set_style_bg_color(barBuffer, lv_color_hex(0x3b82f6), LV_PART_INDICATOR);
 
     lblStatus = lv_label_create(scrMain);
-    lv_obj_set_style_text_font(lblStatus, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lblStatus, &lv_font_montserrat_12, 0);
     lv_obj_set_style_text_color(lblStatus, lv_color_hex(0x9ca3af), 0);
-    lv_obj_align(lblStatus, LV_ALIGN_TOP_LEFT, 12, 174);
+    lv_obj_set_width(lblStatus, W - PAD * 2);
+    lv_label_set_long_mode(lblStatus, LV_LABEL_LONG_DOT);
+    lv_obj_align(lblStatus, LV_ALIGN_TOP_LEFT, PAD, vuY + vuGap * 2 + 12);
     lv_label_set_text(lblStatus, "starting…");
 
     // Controls row
-    auto mkBtn = [](lv_obj_t *parent, const char *txt, lv_coord_t x, lv_event_cb_t cb) {
-        lv_obj_t *btn = lv_btn_create(parent);
-        lv_obj_set_size(btn, 72, 52);
-        lv_obj_align(btn, LV_ALIGN_BOTTOM_LEFT, x, -58);
+    auto mkBtn = [&](const char *txt, int x, lv_event_cb_t cb) {
+        lv_obj_t *btn = lv_btn_create(scrMain);
+        lv_obj_set_size(btn, btnW, btnH);
+        lv_obj_align(btn, LV_ALIGN_BOTTOM_LEFT, x, btnBottom);
         lv_obj_add_event_cb(btn, cb, LV_EVENT_CLICKED, nullptr);
         lv_obj_t *l = lv_label_create(btn);
         lv_label_set_text(l, txt);
         lv_obj_center(l);
         return l;
     };
-    mkBtn(scrMain, LV_SYMBOL_PREV, 12, [](lv_event_t *) { playerPrevUrl(); });
-    btnPlayLabel = mkBtn(scrMain, LV_SYMBOL_PLAY, 92, [](lv_event_t *) {
+    mkBtn(LV_SYMBOL_PREV, PAD, [](lv_event_t *) { playerPrevUrl(); });
+    btnPlayLabel = mkBtn(LV_SYMBOL_PLAY, PAD + btnW + 8, [](lv_event_t *) {
         PlayerStatus ps;
         playerGetStatus(ps);
         if (ps.wantPlaying) playerStop(); else playerPlay();
     });
-    mkBtn(scrMain, LV_SYMBOL_NEXT, 172, [](lv_event_t *) { playerNextUrl(); });
-    lv_obj_t *gearLbl = mkBtn(scrMain, LV_SYMBOL_SETTINGS, 396, [](lv_event_t *) {
-        lv_scr_load(scrSettings);
-    });
-    (void)gearLbl;
+    mkBtn(LV_SYMBOL_NEXT, PAD + (btnW + 8) * 2, [](lv_event_t *) { playerNextUrl(); });
+    mkBtn(LV_SYMBOL_SETTINGS, W - PAD - btnW, [](lv_event_t *) { lv_scr_load(scrSettings); });
 
     // Volume slider
     sliderVol = lv_slider_create(scrMain);
     lv_slider_set_range(sliderVol, 0, 21);
     lv_slider_set_value(sliderVol, config.volume, LV_ANIM_OFF);
-    lv_obj_set_size(sliderVol, 456, 14);
-    lv_obj_align(sliderVol, LV_ALIGN_BOTTOM_LEFT, 12, -22);
+    lv_obj_set_size(sliderVol, W - PAD * 2 - 8, big ? 14 : 10);
+    lv_obj_align(sliderVol, LV_ALIGN_BOTTOM_LEFT, PAD + 4, volBottom);
     lv_obj_add_event_cb(sliderVol, [](lv_event_t *e) {
         int v = lv_slider_get_value(lv_event_get_target(e));
         config.volume = v;
@@ -128,17 +145,20 @@ static void buildMain() {
 }
 
 static void buildSettings() {
+    const int rowH = big ? 44 : 38;
+    const int y0 = big ? 56 : 46;
+
     scrSettings = lv_obj_create(nullptr);
     lv_obj_set_style_bg_color(scrSettings, lv_color_hex(0x0b0f14), 0);
 
     lv_obj_t *title = lv_label_create(scrSettings);
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_20, 0);
+    lv_obj_set_style_text_font(title, fontMid, 0);
     lv_label_set_text(title, "Settings");
-    lv_obj_align(title, LV_ALIGN_TOP_LEFT, 12, 10);
+    lv_obj_align(title, LV_ALIGN_TOP_LEFT, PAD, 10);
 
     lv_obj_t *btnBack = lv_btn_create(scrSettings);
-    lv_obj_set_size(btnBack, 72, 40);
-    lv_obj_align(btnBack, LV_ALIGN_TOP_RIGHT, -12, 6);
+    lv_obj_set_size(btnBack, big ? 84 : 74, big ? 40 : 34);
+    lv_obj_align(btnBack, LV_ALIGN_TOP_RIGHT, -PAD, 6);
     lv_obj_add_event_cb(btnBack, [](lv_event_t *) { lv_scr_load(scrMain); }, LV_EVENT_CLICKED, nullptr);
     lv_obj_t *bl = lv_label_create(btnBack);
     lv_label_set_text(bl, LV_SYMBOL_LEFT " Back");
@@ -147,12 +167,12 @@ static void buildSettings() {
     // Brightness
     lv_obj_t *lb = lv_label_create(scrSettings);
     lv_label_set_text(lb, "Brightness");
-    lv_obj_align(lb, LV_ALIGN_TOP_LEFT, 12, 60);
+    lv_obj_align(lb, LV_ALIGN_TOP_LEFT, PAD, y0 + 4);
     sliderBright = lv_slider_create(scrSettings);
     lv_slider_set_range(sliderBright, 5, 100);
     lv_slider_set_value(sliderBright, config.brightness, LV_ANIM_OFF);
-    lv_obj_set_size(sliderBright, 300, 14);
-    lv_obj_align(sliderBright, LV_ALIGN_TOP_LEFT, 150, 62);
+    lv_obj_set_size(sliderBright, W - 130 - PAD * 2, 12);
+    lv_obj_align(sliderBright, LV_ALIGN_TOP_LEFT, PAD + 120, y0 + 6);
     lv_obj_add_event_cb(sliderBright, [](lv_event_t *e) {
         int v = lv_slider_get_value(lv_event_get_target(e));
         config.brightness = v;
@@ -162,10 +182,10 @@ static void buildSettings() {
 
     // Speakers switch
     lv_obj_t *ls = lv_label_create(scrSettings);
-    lv_label_set_text(ls, "Speakers (line-out always on)");
-    lv_obj_align(ls, LV_ALIGN_TOP_LEFT, 12, 104);
+    lv_label_set_text(ls, big ? "Speakers (line-out always on)" : "Speakers");
+    lv_obj_align(ls, LV_ALIGN_TOP_LEFT, PAD, y0 + rowH + 6);
     swSpeakers = lv_switch_create(scrSettings);
-    lv_obj_align(swSpeakers, LV_ALIGN_TOP_LEFT, 380, 98);
+    lv_obj_align(swSpeakers, LV_ALIGN_TOP_RIGHT, -PAD, y0 + rowH);
     if (config.speakersEnabled) lv_obj_add_state(swSpeakers, LV_STATE_CHECKED);
     lv_obj_add_event_cb(swSpeakers, [](lv_event_t *e) {
         bool on = lv_obj_has_state(lv_event_get_target(e), LV_STATE_CHECKED);
@@ -174,19 +194,20 @@ static void buildSettings() {
         configSave();
     }, LV_EVENT_VALUE_CHANGED, nullptr);
 
-    // Check update button
+    // Buttons row: update check + wifi portal
+    const int btnRowY = y0 + rowH * 2 + 4;
+    const int halfW = (W - PAD * 3) / 2;
     lv_obj_t *btnUpd = lv_btn_create(scrSettings);
-    lv_obj_set_size(btnUpd, 220, 44);
-    lv_obj_align(btnUpd, LV_ALIGN_TOP_LEFT, 12, 148);
+    lv_obj_set_size(btnUpd, halfW, rowH);
+    lv_obj_align(btnUpd, LV_ALIGN_TOP_LEFT, PAD, btnRowY);
     lv_obj_add_event_cb(btnUpd, [](lv_event_t *) { otaCheckNow(true); }, LV_EVENT_CLICKED, nullptr);
     lv_obj_t *ul = lv_label_create(btnUpd);
-    lv_label_set_text(ul, LV_SYMBOL_DOWNLOAD " Check for update");
+    lv_label_set_text(ul, LV_SYMBOL_DOWNLOAD " Update");
     lv_obj_center(ul);
 
-    // WiFi portal button
     lv_obj_t *btnWifi = lv_btn_create(scrSettings);
-    lv_obj_set_size(btnWifi, 220, 44);
-    lv_obj_align(btnWifi, LV_ALIGN_TOP_LEFT, 248, 148);
+    lv_obj_set_size(btnWifi, halfW, rowH);
+    lv_obj_align(btnWifi, LV_ALIGN_TOP_LEFT, PAD * 2 + halfW, btnRowY);
     lv_obj_set_style_bg_color(btnWifi, lv_color_hex(0x374151), 0);
     lv_obj_add_event_cb(btnWifi, [](lv_event_t *) {
         playerStop();
@@ -197,18 +218,29 @@ static void buildSettings() {
     lv_obj_center(wl);
 
     lblOta = lv_label_create(scrSettings);
+    lv_obj_set_style_text_font(lblOta, &lv_font_montserrat_12, 0);
     lv_obj_set_style_text_color(lblOta, lv_color_hex(0x9ca3af), 0);
-    lv_obj_align(lblOta, LV_ALIGN_TOP_LEFT, 12, 206);
+    lv_obj_set_width(lblOta, W - PAD * 2);
+    lv_label_set_long_mode(lblOta, LV_LABEL_LONG_DOT);
+    lv_obj_align(lblOta, LV_ALIGN_TOP_LEFT, PAD, btnRowY + rowH + 10);
     lv_label_set_text(lblOta, "");
 
     lblInfo = lv_label_create(scrSettings);
-    lv_obj_set_style_text_font(lblInfo, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lblInfo, &lv_font_montserrat_12, 0);
     lv_obj_set_style_text_color(lblInfo, lv_color_hex(0x9ca3af), 0);
-    lv_obj_align(lblInfo, LV_ALIGN_BOTTOM_LEFT, 12, -12);
+    lv_obj_set_width(lblInfo, W - PAD * 2);
+    lv_label_set_long_mode(lblInfo, LV_LABEL_LONG_DOT);
+    lv_obj_align(lblInfo, LV_ALIGN_BOTTOM_LEFT, PAD, -8);
     lv_label_set_text(lblInfo, "");
 }
 
 void uiBegin() {
+    W = lv_disp_get_hor_res(nullptr);
+    H = lv_disp_get_ver_res(nullptr);
+    big = H >= 320;
+    fontBig = big ? &lv_font_montserrat_28 : &lv_font_montserrat_20;
+    fontMid = big ? &lv_font_montserrat_20 : &lv_font_montserrat_16;
+
     buildMain();
     buildSettings();
     lv_scr_load(scrMain);
@@ -254,12 +286,11 @@ void uiUpdate() {
     OtaState os;
     otaGetState(os);
     char otaTxt[128];
-    snprintf(otaTxt, sizeof(otaTxt), "Firmware update: %s%s%s", os.message,
-             os.inProgress ? " " : "", os.inProgress ? "…" : "");
+    snprintf(otaTxt, sizeof(otaTxt), "Firmware update: %s%s", os.message, os.inProgress ? "…" : "");
     lv_label_set_text(lblOta, otaTxt);
 
     char infoTxt[128];
-    snprintf(infoTxt, sizeof(infoTxt), "fw %s  ·  %s  ·  http://%s  ·  reconnects %lu",
-             FW_VERSION, config.hostname.c_str(), netIp().c_str(), (unsigned long)ps.reconnects);
+    snprintf(infoTxt, sizeof(infoTxt), "fw %s  ·  http://%s  ·  reconnects %lu",
+             FW_VERSION, netIp().c_str(), (unsigned long)ps.reconnects);
     lv_label_set_text(lblInfo, infoTxt);
 }

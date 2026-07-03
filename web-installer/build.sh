@@ -5,11 +5,12 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-TAG="${1:-cyds3-web-installer}"
-MERGED=../firmware/.pio/build/fnk0104s/firmware-merged.bin
+ENV="${1:-fnk0104b}"   # fnk0104b = 2.8", fnk0104s = 4.0"
+TAG="${2:-cyds3-web-installer}"
+MERGED=../firmware/.pio/build/$ENV/firmware-merged.bin
 
 if [[ ! -f "$MERGED" ]]; then
-  echo "error: $MERGED not found — build the firmware first (cd ../firmware && pio run)" >&2
+  echo "error: $MERGED not found — build the firmware first (cd ../firmware && pio run -e $ENV)" >&2
   exit 1
 fi
 

@@ -8,8 +8,9 @@
 static TFT_eSPI tft;
 static FT6336U ctp(PIN_I2C_SDA, PIN_I2C_SCL, PIN_TOUCH_RST, PIN_TOUCH_INT);
 
-static const uint16_t HOR_RES = 480;
-static const uint16_t VER_RES = 320;
+// Landscape: swap the panel's portrait dimensions from the TFT_eSPI build flags
+static const uint16_t HOR_RES = TFT_HEIGHT;
+static const uint16_t VER_RES = TFT_WIDTH;
 static const size_t BUF_PIXELS = HOR_RES * 40;
 
 static lv_disp_draw_buf_t drawBuf;
@@ -64,7 +65,11 @@ static void displaySelfTest() {
     }
     tft.fillScreen(TFT_BLACK);
     tft.setTextColor(TFT_GREEN, TFT_BLACK);
-    tft.drawString("DISPLAY OK - ST7796 480x320", 40, 150, 4);
+    char msg[40];
+    snprintf(msg, sizeof(msg), "DISPLAY OK %dx%d", HOR_RES, VER_RES);
+    tft.setTextDatum(MC_DATUM);
+    tft.drawString(msg, HOR_RES / 2, VER_RES / 2, 4);
+    tft.setTextDatum(TL_DATUM);
     Serial.println("[disp] selftest text drawn");
     delay(1200);
 }
@@ -74,7 +79,7 @@ void displayBegin() {
     ledcAttach(PIN_LCD_BL, 20000, 8);
     ledcWrite(PIN_LCD_BL, 255);
 
-    Serial.println("[disp] tft.init() ST7796, MOSI=11 SCLK=12 CS=10 DC=46 BL=45");
+    Serial.printf("[disp] tft.init() %dx%d, MOSI=11 SCLK=12 CS=10 DC=46 BL=45\n", HOR_RES, VER_RES);
     tft.init();
     tft.setRotation(1); // landscape, USB on the right
     tft.fillScreen(TFT_BLACK);

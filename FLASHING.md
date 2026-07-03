@@ -35,11 +35,24 @@ image). Same browser rules as above. If the port doesn't appear: hold **BOOT**, 
 
 ```bash
 cd firmware
-pio run -t upload        # builds and flashes over USB
+pio run -t upload        # builds and flashes the default variant (fnk0104b, 2.8")
 pio device monitor       # serial console (115200)
+
+pio run -e fnk0104s -t upload   # 4.0" variant instead
 ```
 
-Build artifacts land in `firmware/.pio/build/fnk0104s/`:
+Two board variants are supported — pick the env that matches the panel:
+
+| Env | Board | Panel | OTA device channel |
+|---|---|---|---|
+| `fnk0104b` (default) | FNK0104B 2.8" | ILI9341 240x320 | `cyds3-stereo` |
+| `fnk0104s` | FNK0104S 4.0" | ST7796 320x480 | `cyds3-stereo-s` |
+
+The two builds are kept on separate update-server channels so a mixed fleet can never
+cross-flash the wrong panel driver. `release.sh` takes the env as its 4th argument, and
+`web-installer/build.sh` takes it as its 1st.
+
+Build artifacts land in `firmware/.pio/build/<env>/`:
 - `firmware.bin` — app image, used for OTA updates
 - `firmware-merged.bin` — full image (bootloader+partitions+app), used for USB/browser flashing
 
