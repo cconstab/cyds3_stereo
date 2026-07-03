@@ -219,10 +219,18 @@ void playerBegin() {
     pinMode(PIN_EXT_AMP_SD, OUTPUT);
     applySpeakers(config.speakersEnabled);
 
-    // Onboard mono speaker: ES8311 codec listens on the mirrored I2S bus.
-    // Codec I2C setup must happen here (core 1, before the UI loop runs) because
-    // the bus is shared with the touch controller.
     pinMode(PIN_AMP_ENABLE, OUTPUT);
+    digitalWrite(PIN_AMP_ENABLE, LOW);
+
+    cmdQueue = xQueueCreate(8, sizeof(Cmd));
+    statusMutex = xSemaphoreCreateMutex();
+    xTaskCreatePinnedToCore(audioTask, "audio", 8192, nullptr, 5, &audioTaskHandle, 0);
+
+    // Onboard mono speaker: the ES8311 needs MCLK running to complete its
+    // power-up, and the audio task starts the I2S clocks in setPinout() —
+    // so give it a moment, then program the codec. Still core 1 (shared I2C
+    // bus with the touch controller) and still before the UI loop runs.
+    delay(400);
     if (es8311_codec_init() == ESP_OK) {
         Serial.println("[player] ES8311 codec initialized");
         playerSetOnboardSpeaker(config.onboardSpeaker);
@@ -230,10 +238,6 @@ void playerBegin() {
         Serial.println("[player] ES8311 init failed — onboard speaker unavailable");
         digitalWrite(PIN_AMP_ENABLE, LOW);
     }
-
-    cmdQueue = xQueueCreate(8, sizeof(Cmd));
-    statusMutex = xSemaphoreCreateMutex();
-    xTaskCreatePinnedToCore(audioTask, "audio", 8192, nullptr, 5, &audioTaskHandle, 0);
 }
 
 // Core 1 only (I2C shared with touch): toggles codec mute + speaker amp enable.
