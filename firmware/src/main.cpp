@@ -57,7 +57,12 @@ void loop() {
     otaLoop();
     statusLed();
 
-    if (millis() - lastUiMs >= 100) {
+    static uint32_t lastVuMs = 0;
+    if (millis() - lastVuMs >= 30) {
+        lastVuMs = millis();
+        uiUpdateVu();
+    }
+    if (millis() - lastUiMs >= 150) {
         lastUiMs = millis();
         uiUpdate();
     }

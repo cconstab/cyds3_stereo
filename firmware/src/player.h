@@ -20,6 +20,7 @@ struct PlayerStatus {
 
 void playerBegin();                 // spawns the audio task on core 0
 void playerGetStatus(PlayerStatus &out);
+void playerGetVu(uint8_t &left, uint8_t &right); // lightweight, for high-rate meter updates
 
 // Commands (thread-safe, marshalled to the audio task)
 void playerPlay();

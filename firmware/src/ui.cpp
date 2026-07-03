@@ -277,12 +277,22 @@ void uiBegin() {
     displaySetBrightness(config.brightness);
 }
 
+// VU with meter ballistics: instant attack, ~0.5s full-scale decay at a 30ms tick.
+void uiUpdateVu() {
+    uint8_t l, r;
+    playerGetVu(l, r);
+    static float dispL = 0, dispR = 0;
+    const float DECAY = 8.0f;
+    dispL = (l >= dispL) ? l : fmaxf((float)l, dispL - DECAY);
+    dispR = (r >= dispR) ? r : fmaxf((float)r, dispR - DECAY);
+    setVuLevel(vuSegL, (uint8_t)dispL);
+    setVuLevel(vuSegR, (uint8_t)dispR);
+}
+
 void uiUpdate() {
     PlayerStatus ps;
     playerGetStatus(ps);
 
-    setVuLevel(vuSegL, ps.playing ? ps.vuLeft : 0);
-    setVuLevel(vuSegR, ps.playing ? ps.vuRight : 0);
     lv_bar_set_value(barBuffer, ps.bufferPct, LV_ANIM_OFF);
 
     lv_label_set_text(lblStation, ps.station[0] ? ps.station : config.stationName.c_str());

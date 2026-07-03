@@ -217,7 +217,7 @@ static void audioTask(void *) {
         while (xQueueReceive(cmdQueue, &cmd, 0) == pdTRUE) handleCmd(cmd);
         audio.loop();
         uint32_t now = millis();
-        if (now - lastStatusMs >= 100) {
+        if (now - lastStatusMs >= 30) { // 30ms so the VU meters track the audio closely
             lastStatusMs = now;
             publishStatus();
             watchdog();
@@ -261,6 +261,13 @@ void playerSetOnboardSpeaker(bool enabled) {
 void playerGetStatus(PlayerStatus &out) {
     xSemaphoreTake(statusMutex, portMAX_DELAY);
     out = status;
+    xSemaphoreGive(statusMutex);
+}
+
+void playerGetVu(uint8_t &left, uint8_t &right) {
+    xSemaphoreTake(statusMutex, portMAX_DELAY);
+    left = status.playing ? status.vuLeft : 0;
+    right = status.playing ? status.vuRight : 0;
     xSemaphoreGive(statusMutex);
 }
 
