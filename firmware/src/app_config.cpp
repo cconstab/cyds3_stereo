@@ -35,6 +35,7 @@ String configToJson(bool includeSecrets) {
     doc["onboardSpeaker"] = config.onboardSpeaker;
     doc["autoPlay"] = config.autoPlay;
     doc["brightness"] = config.brightness;
+    doc["bootSelfTest"] = config.bootSelfTest;
     doc["otaBaseUrl"] = config.otaBaseUrl;
     doc["autoUpdate"] = config.autoUpdate;
     doc["otaCheckMinutes"] = config.otaCheckMinutes;
@@ -64,6 +65,7 @@ bool configFromJson(const String &json) {
     if (doc["onboardSpeaker"].is<bool>()) config.onboardSpeaker = doc["onboardSpeaker"];
     if (doc["autoPlay"].is<bool>()) config.autoPlay = doc["autoPlay"];
     if (doc["brightness"].is<int>()) config.brightness = constrain(doc["brightness"].as<int>(), 5, 100);
+    if (doc["bootSelfTest"].is<bool>()) config.bootSelfTest = doc["bootSelfTest"];
     if (doc["otaBaseUrl"].is<const char *>()) {
         config.otaBaseUrl = doc["otaBaseUrl"].as<String>();
         if (config.otaBaseUrl.endsWith("/")) config.otaBaseUrl.remove(config.otaBaseUrl.length() - 1);

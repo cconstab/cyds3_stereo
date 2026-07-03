@@ -1,6 +1,7 @@
 // TFT_eSPI + FT6336U -> LVGL glue for the FNK0104S (landscape 480x320).
 #include "display_lvgl.h"
 #include "pins.h"
+#include "app_config.h"
 #include <TFT_eSPI.h>
 #include <FT6336U.h>
 #include <Wire.h>
@@ -84,7 +85,7 @@ void displayBegin() {
     tft.setRotation(1); // landscape, USB on the right
     tft.fillScreen(TFT_BLACK);
 
-    displaySelfTest();
+    if (config.bootSelfTest) displaySelfTest();
 
     ctp.begin();
 

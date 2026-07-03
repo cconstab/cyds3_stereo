@@ -21,7 +21,8 @@ struct AppConfig {
     bool autoPlay = true;
 
     // Display
-    uint8_t brightness = 80; // percent
+    uint8_t brightness = 80;    // percent
+    bool bootSelfTest = false;  // color-cycle + I2C probe at power-on (bring-up diagnostic)
 
     // OTA
     String otaBaseUrl; // e.g. http://192.168.1.50:8080

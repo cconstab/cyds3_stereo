@@ -52,6 +52,7 @@ small{color:#888}label{display:block;margin-top:8px}
 <label><input type=checkbox id=onboardSpeaker style="width:auto"> Onboard speaker</label>
 <label><input type=checkbox id=speakersEnabled style="width:auto"> External speakers (line-out always on)</label>
 <label><input type=checkbox id=autoPlay style="width:auto"> Auto-play on boot</label>
+<label><input type=checkbox id=bootSelfTest style="width:auto"> Display self-test at power-on (diagnostic)</label>
 <label>Brightness %<input type=number id=brightness min=5 max=100></label>
 
 <h2>Firmware</h2>
@@ -81,13 +82,13 @@ function poll(){fetch('/api/status').then(r=>r.json()).then(s=>{
 function load(){fetch('/api/config').then(r=>r.json()).then(c=>{
  for(const k of ['stationName','wifiSsid','otaBaseUrl','brightness'])$(k).value=c[k]??'';
  $('streamUrls').value=(c.streamUrls||[]).join('\n');
- for(const k of ['speakersEnabled','onboardSpeaker','autoPlay','autoUpdate'])$(k).checked=!!c[k];
+ for(const k of ['speakersEnabled','onboardSpeaker','autoPlay','autoUpdate','bootSelfTest'])$(k).checked=!!c[k];
 })}
 function save(){
  const body={stationName:$('stationName').value,wifiSsid:$('wifiSsid').value,
   streamUrls:$('streamUrls').value.split('\n').map(s=>s.trim()).filter(Boolean),
   speakersEnabled:$('speakersEnabled').checked,onboardSpeaker:$('onboardSpeaker').checked,autoPlay:$('autoPlay').checked,
-  autoUpdate:$('autoUpdate').checked,brightness:+$('brightness').value,
+  autoUpdate:$('autoUpdate').checked,bootSelfTest:$('bootSelfTest').checked,brightness:+$('brightness').value,
   otaBaseUrl:$('otaBaseUrl').value};
  if($('wifiPass').value)body.wifiPass=$('wifiPass').value;
  fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})

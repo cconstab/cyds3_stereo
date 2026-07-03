@@ -7,6 +7,7 @@
 #include "ota.h"
 #include "display_lvgl.h"
 #include <lvgl.h>
+#include <WiFi.h>
 
 // Resolution-dependent metrics, set in uiBegin()
 static lv_coord_t W, H;
@@ -33,6 +34,20 @@ static lv_obj_t *lblInfo;
 static lv_obj_t *swSpeakers;
 static lv_obj_t *sliderBright;
 static lv_obj_t *lblOta;
+
+// ---- WiFi setup screen ----
+static lv_obj_t *scrWifi;
+static lv_obj_t *ddSsid;
+static lv_obj_t *lblWifiInfo;
+static char pendingPass[65] = "";
+static bool scanning = false;
+
+// ---- Text editor screen (shared: WiFi password / station URLs) ----
+enum EditTarget { ET_NONE, ET_PASS, ET_URLS };
+static lv_obj_t *scrEdit;
+static lv_obj_t *editTa;
+static lv_obj_t *lblEditTitle;
+static EditTarget editTarget = ET_NONE;
 
 static bool lastPlaying = false;
 
@@ -178,6 +193,155 @@ static void buildMain() {
     }, LV_EVENT_ALL, nullptr);
 }
 
+// ---- Shared text editor with touch keyboard ----
+
+static void openEditor(EditTarget target, const char *title, const char *initial, bool oneLine) {
+    editTarget = target;
+    lv_label_set_text(lblEditTitle, title);
+    lv_textarea_set_one_line(editTa, oneLine);
+    lv_textarea_set_text(editTa, initial);
+    lv_scr_load(scrEdit);
+}
+
+static void editorDone(bool ok) {
+    if (ok && editTarget == ET_PASS) {
+        strlcpy(pendingPass, lv_textarea_get_text(editTa), sizeof(pendingPass));
+    }
+    if (ok && editTarget == ET_URLS) {
+        config.streamUrls.clear();
+        String all = lv_textarea_get_text(editTa);
+        int start = 0;
+        while (start < (int)all.length() && config.streamUrls.size() < MAX_STREAM_URLS) {
+            int nl = all.indexOf('\n', start);
+            if (nl < 0) nl = all.length();
+            String line = all.substring(start, nl);
+            line.trim();
+            if (line.length()) config.streamUrls.push_back(line);
+            start = nl + 1;
+        }
+        configSave();
+        playerReloadUrls();
+    }
+    lv_scr_load(editTarget == ET_PASS ? scrWifi : scrSettings);
+    editTarget = ET_NONE;
+}
+
+static void buildEditor() {
+    scrEdit = lv_obj_create(nullptr);
+    lv_obj_set_style_bg_color(scrEdit, lv_color_hex(0x0b0f14), 0);
+
+    lblEditTitle = lv_label_create(scrEdit);
+    lv_obj_set_style_text_font(lblEditTitle, &lv_font_montserrat_14, 0);
+    lv_obj_align(lblEditTitle, LV_ALIGN_TOP_LEFT, PAD, 10);
+
+    lv_obj_t *btnOk = lv_btn_create(scrEdit);
+    styleBtn(btnOk);
+    lv_obj_set_style_bg_color(btnOk, lv_color_hex(0x14532d), 0); // subdued green: confirm
+    lv_obj_set_size(btnOk, 64, 30);
+    lv_obj_align(btnOk, LV_ALIGN_TOP_RIGHT, -PAD, 4);
+    lv_obj_add_event_cb(btnOk, [](lv_event_t *) { editorDone(true); }, LV_EVENT_CLICKED, nullptr);
+    lv_obj_t *okl = lv_label_create(btnOk);
+    lv_label_set_text(okl, LV_SYMBOL_OK);
+    lv_obj_center(okl);
+
+    lv_obj_t *btnCancel = lv_btn_create(scrEdit);
+    styleBtn(btnCancel);
+    lv_obj_set_size(btnCancel, 64, 30);
+    lv_obj_align(btnCancel, LV_ALIGN_TOP_RIGHT, -PAD - 72, 4);
+    lv_obj_add_event_cb(btnCancel, [](lv_event_t *) { editorDone(false); }, LV_EVENT_CLICKED, nullptr);
+    lv_obj_t *cl = lv_label_create(btnCancel);
+    lv_label_set_text(cl, LV_SYMBOL_CLOSE);
+    lv_obj_center(cl);
+
+    editTa = lv_textarea_create(scrEdit);
+    lv_obj_set_size(editTa, W - PAD * 2, big ? 96 : 56);
+    lv_obj_align(editTa, LV_ALIGN_TOP_LEFT, PAD, 40);
+    lv_obj_set_style_bg_color(editTa, lv_color_hex(0x1a2029), 0);
+
+    lv_obj_t *kb = lv_keyboard_create(scrEdit);
+    lv_keyboard_set_textarea(kb, editTa);
+    lv_obj_set_size(kb, W, H / 2);
+    lv_obj_align(kb, LV_ALIGN_BOTTOM_MID, 0, 0);
+}
+
+// ---- WiFi setup screen ----
+
+static void wifiStartScan() {
+    scanning = true;
+    lv_dropdown_set_options(ddSsid, "Scanning...");
+    WiFi.scanNetworks(true); // async; polled in uiUpdate
+}
+
+static void buildWifi() {
+    scrWifi = lv_obj_create(nullptr);
+    lv_obj_set_style_bg_color(scrWifi, lv_color_hex(0x0b0f14), 0);
+
+    lv_obj_t *title = lv_label_create(scrWifi);
+    lv_obj_set_style_text_font(title, fontMid, 0);
+    lv_label_set_text(title, "WiFi setup");
+    lv_obj_align(title, LV_ALIGN_TOP_LEFT, PAD, 10);
+
+    lv_obj_t *btnBack = lv_btn_create(scrWifi);
+    styleBtn(btnBack);
+    lv_obj_set_size(btnBack, big ? 84 : 74, big ? 40 : 32);
+    lv_obj_align(btnBack, LV_ALIGN_TOP_RIGHT, -PAD, 6);
+    lv_obj_add_event_cb(btnBack, [](lv_event_t *) { lv_scr_load(scrSettings); }, LV_EVENT_CLICKED, nullptr);
+    lv_obj_t *bl = lv_label_create(btnBack);
+    lv_label_set_text(bl, LV_SYMBOL_LEFT " Back");
+    lv_obj_center(bl);
+
+    ddSsid = lv_dropdown_create(scrWifi);
+    lv_obj_set_size(ddSsid, W - PAD * 2, big ? 44 : 36);
+    lv_obj_align(ddSsid, LV_ALIGN_TOP_LEFT, PAD, big ? 56 : 46);
+    lv_obj_set_style_bg_color(ddSsid, lv_color_hex(0x1a2029), 0);
+    lv_dropdown_set_options(ddSsid, "Scanning...");
+
+    const int rowH = big ? 44 : 36;
+    const int btnY = (big ? 56 : 46) + rowH + 10;
+    const int halfW = (W - PAD * 3) / 2;
+    auto mkWifiBtn = [&](const char *txt, int col, int row, lv_event_cb_t cb) {
+        lv_obj_t *btn = lv_btn_create(scrWifi);
+        styleBtn(btn);
+        lv_obj_set_size(btn, halfW, rowH);
+        lv_obj_align(btn, LV_ALIGN_TOP_LEFT, PAD + col * (halfW + PAD), btnY + row * (rowH + 8));
+        lv_obj_add_event_cb(btn, cb, LV_EVENT_CLICKED, nullptr);
+        lv_obj_t *l = lv_label_create(btn);
+        lv_label_set_text(l, txt);
+        lv_obj_center(l);
+        return btn;
+    };
+    mkWifiBtn(LV_SYMBOL_REFRESH " Rescan", 0, 0, [](lv_event_t *) { wifiStartScan(); });
+    mkWifiBtn(LV_SYMBOL_EDIT " Password", 1, 0, [](lv_event_t *) {
+        openEditor(ET_PASS, "WiFi password", pendingPass, true);
+    });
+    lv_obj_t *btnConnect = mkWifiBtn(LV_SYMBOL_WIFI " Connect", 0, 1, [](lv_event_t *e) {
+        char ssid[64];
+        lv_dropdown_get_selected_str(ddSsid, ssid, sizeof(ssid));
+        if (!ssid[0] || !strcmp(ssid, "Scanning...") || !strcmp(ssid, "No networks found")) return;
+        config.wifiSsid = ssid;
+        config.wifiPass = pendingPass;
+        configSave();
+        lv_obj_t *l = lv_obj_get_child(lv_event_get_target(e), 0);
+        lv_label_set_text(l, "Rebooting...");
+        lv_refr_now(nullptr);
+        delay(400);
+        ESP.restart();
+    });
+    lv_obj_set_style_bg_color(btnConnect, lv_color_hex(0x14532d), 0);
+    mkWifiBtn("Hotspot mode", 1, 1, [](lv_event_t *) {
+        playerStop();
+        netStartPortal();
+        lv_scr_load(scrMain);
+    });
+
+    lblWifiInfo = lv_label_create(scrWifi);
+    lv_obj_set_style_text_font(lblWifiInfo, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_color(lblWifiInfo, lv_color_hex(0x9ca3af), 0);
+    lv_obj_set_width(lblWifiInfo, W - PAD * 2);
+    lv_label_set_long_mode(lblWifiInfo, LV_LABEL_LONG_DOT);
+    lv_obj_align(lblWifiInfo, LV_ALIGN_TOP_LEFT, PAD, btnY + 2 * (rowH + 8) + 6);
+}
+
 static void buildSettings() {
     const int rowH = big ? 44 : 34;
     const int y0 = big ? 56 : 42;
@@ -261,19 +425,37 @@ static void buildSettings() {
     lv_obj_set_size(btnWifi, halfW, rowH);
     lv_obj_align(btnWifi, LV_ALIGN_TOP_LEFT, PAD * 2 + halfW, btnRowY);
     lv_obj_add_event_cb(btnWifi, [](lv_event_t *) {
-        playerStop();
-        netStartPortal();
+        wifiStartScan();
+        lv_scr_load(scrWifi);
     }, LV_EVENT_CLICKED, nullptr);
     lv_obj_t *wl = lv_label_create(btnWifi);
     lv_label_set_text(wl, LV_SYMBOL_WIFI " WiFi setup");
     lv_obj_center(wl);
+
+    // Second row: station URL editor
+    const int btnRowY2 = btnRowY + rowH + 8;
+    lv_obj_t *btnUrls = lv_btn_create(scrSettings);
+    styleBtn(btnUrls);
+    lv_obj_set_size(btnUrls, W - PAD * 2, rowH);
+    lv_obj_align(btnUrls, LV_ALIGN_TOP_LEFT, PAD, btnRowY2);
+    lv_obj_add_event_cb(btnUrls, [](lv_event_t *) {
+        String all;
+        for (auto &u : config.streamUrls) {
+            all += u;
+            all += "\n";
+        }
+        openEditor(ET_URLS, "Stream URLs (one per line)", all.c_str(), false);
+    }, LV_EVENT_CLICKED, nullptr);
+    lv_obj_t *ul2 = lv_label_create(btnUrls);
+    lv_label_set_text(ul2, LV_SYMBOL_LIST " Edit station URLs");
+    lv_obj_center(ul2);
 
     lblOta = lv_label_create(scrSettings);
     lv_obj_set_style_text_font(lblOta, &lv_font_montserrat_12, 0);
     lv_obj_set_style_text_color(lblOta, lv_color_hex(0x9ca3af), 0);
     lv_obj_set_width(lblOta, W - PAD * 2);
     lv_label_set_long_mode(lblOta, LV_LABEL_LONG_DOT);
-    lv_obj_align(lblOta, LV_ALIGN_TOP_LEFT, PAD, btnRowY + rowH + 10);
+    lv_obj_align(lblOta, LV_ALIGN_TOP_LEFT, PAD, btnRowY2 + rowH + 10);
     lv_label_set_text(lblOta, "");
 
     lblInfo = lv_label_create(scrSettings);
@@ -281,7 +463,7 @@ static void buildSettings() {
     lv_obj_set_style_text_color(lblInfo, lv_color_hex(0x9ca3af), 0);
     lv_obj_set_width(lblInfo, W - PAD * 2);
     lv_label_set_long_mode(lblInfo, LV_LABEL_LONG_DOT);
-    lv_obj_align(lblInfo, LV_ALIGN_BOTTOM_LEFT, PAD, -8);
+    lv_obj_align(lblInfo, LV_ALIGN_TOP_LEFT, PAD, btnRowY2 + rowH + 28);
     lv_label_set_text(lblInfo, "");
 }
 
@@ -293,6 +475,8 @@ void uiBegin() {
     fontMid = big ? &lv_font_montserrat_20 : &lv_font_montserrat_16;
 
     buildMain();
+    buildEditor();
+    buildWifi();
     buildSettings();
     lv_scr_load(scrMain);
     displaySetBrightness(config.brightness);
@@ -380,4 +564,30 @@ void uiUpdate() {
     snprintf(infoTxt, sizeof(infoTxt), "fw %s  •  http://%s  •  reconnects %lu",
              FW_VERSION, netIp().c_str(), (unsigned long)ps.reconnects);
     lv_label_set_text(lblInfo, infoTxt);
+
+    // WiFi setup screen: deliver async scan results, refresh the info line
+    if (scanning) {
+        int n = WiFi.scanComplete();
+        if (n >= 0) {
+            scanning = false;
+            String opts;
+            for (int i = 0; i < n && i < 20; i++) {
+                if (WiFi.SSID(i).isEmpty()) continue;
+                if (opts.length()) opts += "\n";
+                opts += WiFi.SSID(i);
+            }
+            lv_dropdown_set_options(ddSsid, opts.length() ? opts.c_str() : "No networks found");
+            WiFi.scanDelete();
+        } else if (n == WIFI_SCAN_FAILED) {
+            scanning = false;
+            lv_dropdown_set_options(ddSsid, "No networks found");
+        }
+    }
+    if (lv_scr_act() == scrWifi) {
+        char t[96];
+        snprintf(t, sizeof(t), "Current: %s  •  Password: %s",
+                 config.wifiSsid.length() ? config.wifiSsid.c_str() : "(none)",
+                 pendingPass[0] ? "entered" : "(empty)");
+        lv_label_set_text(lblWifiInfo, t);
+    }
 }
