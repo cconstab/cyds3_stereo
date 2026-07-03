@@ -3,6 +3,7 @@
 #include "pins.h"
 #include <TFT_eSPI.h>
 #include <FT6336U.h>
+#include <Wire.h>
 
 static TFT_eSPI tft;
 static FT6336U ctp(PIN_I2C_SDA, PIN_I2C_SCL, PIN_TOUCH_RST, PIN_TOUCH_INT);
@@ -39,14 +40,46 @@ static void touchCb(lv_indev_drv_t *, lv_indev_data_t *data) {
     }
 }
 
+// Boot-time hardware probe + raw-TFT self-test, before LVGL is involved.
+// Serial output tells us which panel/controllers we're actually talking to.
+static void displaySelfTest() {
+    Serial.println("[disp] i2c scan (SDA=16 SCL=15):");
+    Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
+    for (uint8_t addr = 1; addr < 127; addr++) {
+        Wire.beginTransmission(addr);
+        if (Wire.endTransmission() == 0) {
+            const char *name = addr == 0x38 ? "FT6336U touch" : addr == 0x18 ? "ES8311 codec" : "?";
+            Serial.printf("[disp]   found 0x%02X (%s)\n", addr, name);
+        }
+    }
+    Serial.println("[disp] i2c scan done");
+
+    struct { const char *name; uint16_t color; } steps[] = {
+        {"RED", TFT_RED}, {"GREEN", TFT_GREEN}, {"BLUE", TFT_BLUE}, {"WHITE", TFT_WHITE},
+    };
+    for (auto &s : steps) {
+        Serial.printf("[disp] selftest fill %s\n", s.name);
+        tft.fillScreen(s.color);
+        delay(500);
+    }
+    tft.fillScreen(TFT_BLACK);
+    tft.setTextColor(TFT_GREEN, TFT_BLACK);
+    tft.drawString("DISPLAY OK - ST7796 480x320", 40, 150, 4);
+    Serial.println("[disp] selftest text drawn");
+    delay(1200);
+}
+
 void displayBegin() {
     // Backlight PWM (LEDC), full brightness during boot
     ledcAttach(PIN_LCD_BL, 20000, 8);
     ledcWrite(PIN_LCD_BL, 255);
 
+    Serial.println("[disp] tft.init() ST7796, MOSI=11 SCLK=12 CS=10 DC=46 BL=45");
     tft.init();
     tft.setRotation(1); // landscape, USB on the right
     tft.fillScreen(TFT_BLACK);
+
+    displaySelfTest();
 
     ctp.begin();
 

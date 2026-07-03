@@ -21,14 +21,16 @@ static void statusLed() {
     lastLedMs = millis();
     PlayerStatus ps;
     playerGetStatus(ps);
+    uint32_t rgb;
     switch (netMode()) {
-        case NetMode::PORTAL: neopixelWrite(PIN_RGB_LED, 0, 0, 40); break;
-        case NetMode::ONLINE:
-            if (ps.playing) neopixelWrite(PIN_RGB_LED, 0, 40, 0);
-            else neopixelWrite(PIN_RGB_LED, 30, 25, 0);
-            break;
-        default: neopixelWrite(PIN_RGB_LED, 40, 0, 0); break;
+        case NetMode::PORTAL: rgb = 0x000028; break;
+        case NetMode::ONLINE: rgb = ps.playing ? 0x002800 : 0x1e1900; break;
+        default: rgb = 0x280000; break;
     }
+    static uint32_t lastRgb = 0xFFFFFFFF;
+    if (rgb == lastRgb) return; // avoid hammering the RMT driver every tick
+    lastRgb = rgb;
+    rgbLedWrite(PIN_RGB_LED, (rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
 }
 
 void setup() {
