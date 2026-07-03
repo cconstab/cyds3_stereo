@@ -48,6 +48,13 @@ static uint32_t vuFrames = 0;
 static uint8_t rmsTakeVu(uint64_t acc) {
     if (!vuFrames) return 0;
     float rms = sqrtf((float)(acc / vuFrames)) / 32768.0f;
+    // The hook sees post-fader samples (library applies Gain() first); undo the
+    // volume attenuation so the meter shows source loudness. Default volume
+    // curve is square-law: gain = (vol/steps)^2.
+    float g = audio.getVolume() / 21.0f;
+    g *= g;
+    if (g < 1e-3f) return 0; // effectively muted — nothing to meter
+    rms = fminf(rms / g, 1.0f);
     if (rms < 1e-4f) return 0;
     float db = 20.0f * log10f(rms);
     float pct = (db + 42.0f) / 42.0f;
