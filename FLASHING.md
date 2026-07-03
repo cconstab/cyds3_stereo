@@ -5,20 +5,33 @@
 - Freenove FNK0104S connected via a **data-capable** USB-C cable
 - Either: any Chrome/Edge browser (easiest), or PlatformIO CLI (for development)
 
-## Option A — Browser flashing (no toolchain needed)
+## Option A — Standalone web installer (no toolchain, no server state)
 
-1. Start the update server:
-   ```bash
-   cd update-server
-   UPLOAD_TOKEN=yoursecret docker compose up -d
-   ```
-2. Open `http://<server>:8080`, upload both build artifacts
-   (`firmware.bin` and `firmware-merged.bin`) with a version number.
-3. Open `http://<server>:8080/flash.html` in Chrome/Edge, plug in the board, click
-   **Connect**, pick the serial port, and install.
-   - If the port doesn't appear: hold **BOOT**, tap **RESET**, release **BOOT**, retry.
+A self-contained Docker image that serves a "flash your device" page with the firmware
+baked in — ideal to hand to anyone who just needs to bring up a new unit.
 
-## Option B — PlatformIO (development)
+```bash
+cd web-installer
+./build.sh                    # stages the current firmware build into the image
+docker run -d --rm -p 8090:80 cyds3-web-installer
+```
+
+Open `http://localhost:8090` in Chrome/Edge **on the machine the board is plugged into**,
+click **Connect**, pick the serial port, install.
+
+> Web Serial requires a secure context: `http://localhost` works as-is; if you host this
+> for others, put it behind HTTPS (any reverse proxy with a real cert).
+
+Rebuild the image (`./build.sh`) whenever you cut a new firmware release you want it to carry.
+
+## Option B — Browser flashing from the update server
+
+The fleet update server also serves a flasher at `http://<server>:8080/flash.html`, using
+whatever version is currently published on its dashboard (upload must include the merged
+image). Same browser rules as above. If the port doesn't appear: hold **BOOT**, tap
+**RESET**, release **BOOT**, retry.
+
+## Option C — PlatformIO (development)
 
 ```bash
 cd firmware

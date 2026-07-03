@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CYD-S3 Stereo — Firmware Installer</title>
+<style>
+:root{color-scheme:dark}
+body{font-family:system-ui,sans-serif;background:#0f1115;color:#e5e7eb;max-width:720px;margin:0 auto;padding:32px 24px}
+h1{font-size:1.5em;margin-bottom:.2em}
+.card{background:#161b22;border:1px solid #2d333b;border-radius:12px;padding:20px 24px;margin:20px 0}
+ol li,ul li{margin:8px 0}
+code{background:#22272e;padding:2px 6px;border-radius:4px}
+esp-web-install-button{--esp-tools-button-color:#2563eb;--esp-tools-button-text-color:#fff}
+.ver{color:#22c55e;font-weight:600}
+small{color:#8b949e}
+a{color:#60a5fa}
+.warn{border-left:4px solid #eab308;padding:10px 14px;background:#1c1a12;border-radius:6px;font-size:.92em}
+</style>
+<script type="module" src="./vendor/esp-web-tools/web/install-button.js"></script>
+</head>
+<body>
+<h1>CYD-S3 Stereo</h1>
+<p>Firmware installer for the Freenove FNK0104S internet radio player.
+Bundled firmware version: <span class="ver" id="ver">…</span></p>
+
+<div class="card">
+<h3>Install over USB</h3>
+<ol>
+  <li>Connect the board with a <b>data-capable</b> USB-C cable.</li>
+  <li>Click <b>Connect</b> below and pick the serial port
+      (<code>USB JTAG/serial debug unit</code> or similar).</li>
+  <li>Choose <b>Install</b>. A full install takes about a minute.</li>
+</ol>
+<esp-web-install-button manifest="./manifest.json">
+  <span slot="unsupported">
+    <div class="warn">This browser lacks Web Serial — use Chrome or Edge on desktop.</div>
+  </span>
+  <span slot="not-allowed">
+    <div class="warn">Web Serial needs a secure context. Open this page via
+    <code>http://localhost:…</code> on the machine the board is plugged into,
+    or serve it over HTTPS.</div>
+  </span>
+</esp-web-install-button>
+<p><small>Board not detected? Hold <b>BOOT</b>, tap <b>RESET</b>, release <b>BOOT</b>, then retry.
+An install erases the device — a previously configured player will need setting up again.</small></p>
+</div>
+
+<div class="card">
+<h3>After flashing</h3>
+<ol>
+  <li>The device boots into setup mode and starts a WiFi access point named
+      <b>CYD-Radio-xxxx</b>.</li>
+  <li>Join it from a phone or laptop; the setup page opens automatically
+      (or browse to <code>192.168.4.1</code>).</li>
+  <li>Enter WiFi credentials, stream URLs, and the update-server address —
+      future updates then arrive over the air.</li>
+</ol>
+</div>
+
+<script>
+fetch('./manifest.json').then(r=>r.json()).then(m=>{document.getElementById('ver').textContent=m.version});
+</script>
+</body>
+</html>

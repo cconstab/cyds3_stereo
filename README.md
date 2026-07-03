@@ -59,6 +59,8 @@ firmware/        PlatformIO project (ESP32-S3, Arduino core 3.x via pioarduino)
   lib/           vendored libs: ESP32-audioI2S v3.0.13, FT6336U (Freenove-tested)
   scripts/       merged-image post-build + release.sh (build & publish one-liner)
 update-server/   Docker container: OTA manifest + upload dashboard + browser flasher
+web-installer/   Docker container: standalone "flash from your browser" page with
+                 the firmware baked in (no server/toolchain needed to deploy a unit)
 HARDWARE.md      Board selection, parts list, wiring
 FLASHING.md      First flash, provisioning, OTA release workflow
 ```

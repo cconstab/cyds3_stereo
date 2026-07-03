@@ -1,0 +1,8 @@
+# Note: run ./build.sh first — it stages the firmware the image bakes in.
+services:
+  web-installer:
+    build: .
+    image: cyds3-web-installer
+    ports:
+      - "8090:80"
+    restart: unless-stopped
