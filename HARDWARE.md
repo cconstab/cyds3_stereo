@@ -1,10 +1,16 @@
 # Hardware Guide
 
-Resilient stereo internet-radio player built on the Freenove FNK0104S ESP32-S3 touch display.
+Resilient stereo internet-radio player built on the Freenove FNK0104 ESP32-S3 touch displays.
 
-## Board: Freenove FNK0104S (4.0" variant)
+> **Supported variants:** the firmware builds for both the 2.8" **FNK0104B**
+> (`fnk0104b`, the default env and the hardware this project is developed/tested on)
+> and the 4.0" **FNK0104S** (`fnk0104s`). Touch, audio, SD, and the external-I2S pins
+> are identical across both (verified against both schematics); only the display
+> driver/resolution differs, handled by the build env.
 
-Chosen over the other FNK0104 variants after comparing the per-variant schematics in the
+## Board comparison (from the original selection)
+
+Compared using the per-variant schematics in the
 [Freenove_ESP32_S3_Display repo](https://github.com/Freenove/Freenove_ESP32_S3_Display):
 
 | Variant | Display | Driver | Free GPIOs on external connectors | Verdict |
@@ -20,9 +26,15 @@ Chosen over the other FNK0104 variants after comparing the per-variant schematic
 - **Display:** 4.0" IPS 320x480, ST7796, SPI
 - **Touch:** FT6336G capacitive, I2C
 - **Audio (onboard):** ES8311 codec (mono DAC) + SC8002B amp -> PH1.25 speaker connector.
-  I2S wired internally on GPIO 4 (MCLK), 5 (BCK), 7 (WS), 8 (DOUT), 6 (DIN); amp enable on GPIO 1.
-  The internal I2S bus is **not broken out** — external audio uses the S3's second I2S peripheral
-  on free GPIOs instead.
+  I2S wired internally on GPIO 4 (MCLK), 5 (BCK), 7 (WS), 8 (DOUT), 6 (DIN).
+  **GPIO 1 is the SC8002B SHUTDOWN pin — active high: LOW = amp on, HIGH = off**
+  (Freenove's silk/docs call it "AP_ENABLE", which is misleading).
+  The firmware drives the onboard codec from the same I2S bus as the external DACs by
+  mirroring the bus onto the codec pins via the S3's GPIO matrix (MCLK on GPIO 4 goes to
+  the codec directly), so the mono speaker plays alongside the stereo outputs and has its
+  own on/off toggle. Two bring-up gotchas baked into the firmware: the ES8311 needs MCLK
+  running **before** codec register init, and its I2C lives on the same bus as the touch
+  controller (all codec I2C stays on core 1).
 - **Also onboard:** micro-SD slot (4-bit SDMMC), MEMS microphone, WS2812B RGB LED,
   TP4054 LiPo charger + JST battery connector, USB-C (native USB — serial console does not
   consume UART0), boot/reset keys
@@ -82,13 +94,26 @@ PCM5102A one-time setup:
 - The onboard mono speaker stays usable as a fallback/test output via the ES8311; its amp
   (GPIO 1) is muted when the stereo pair is active.
 
-## First-power-up checklist (when parts arrive)
+## Validated display configs (from real-hardware bring-up)
 
-1. Run Freenove's stock music demo — confirms display, touch, codec, WiFi all work.
+| Variant | Driver define | Notes |
+|---|---|---|
+| FNK0104B 2.8" | `ILI9341_2_DRIVER`, `TFT_INVERSION_ON`, `TFT_RGB_ORDER=TFT_BGR`, MISO 13, **27 MHz SPI** | Freenove ships 40 MHz; 27 MHz used for margin. Inversion is required (without it the panel renders as a negative). |
+| FNK0104S 4.0" | `ST7796_DRIVER`, `TFT_INVERSION_ON`, MISO -1, 80 MHz SPI | From Freenove's setup; not yet verified on physical hardware. |
+
+Shared display pins (both variants): MOSI 11, SCLK 12, CS 10, DC 46, RST tied to board
+reset, backlight PWM on GPIO 45 (LEDC, driven by firmware for brightness control).
+
+## First-power-up checklist (new external audio parts)
+
+1. Boot with the current firmware — display, touch, WiFi, and onboard speaker are already
+   validated on the 2.8" board. (Optional: enable "Display self-test at power-on" in the
+   web config for the color-cycle + I2C probe diagnostics.)
 2. Continuity-check which Extended IO / aux connector pins carry GPIO 2/3/14/21 — the schematic's
    connector labels are ambiguous about the exact pin-to-connector mapping (worst case, UART pins
    GPIO 43/44 are also free since the console runs over native USB).
-3. Flash a 10-line I2S test sketch (sine sweep) to the external amps — confirms the stereo bus.
+3. Wire the amps/DAC per the table above and play a stream — the firmware already drives
+   the external bus, so stereo should be sound-on-first-boot.
 
 ## References
 
