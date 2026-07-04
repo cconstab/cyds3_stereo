@@ -16,6 +16,7 @@ struct PlayerStatus {
     char title[128] = "";
     char currentUrl[160] = "";
     char lastError[96] = "";
+    char probeMsg[64] = ""; // preferred-stream recovery status, empty when idle
 };
 
 void playerBegin();                 // spawns the audio task on core 0

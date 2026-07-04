@@ -34,6 +34,7 @@ String configToJson(bool includeSecrets) {
     doc["speakersEnabled"] = config.speakersEnabled;
     doc["onboardSpeaker"] = config.onboardSpeaker;
     doc["autoPlay"] = config.autoPlay;
+    doc["preferredResume"] = config.preferredResume;
     doc["brightness"] = config.brightness;
     doc["bootSelfTest"] = config.bootSelfTest;
     doc["webUiEnabled"] = config.webUiEnabled;
@@ -67,6 +68,7 @@ bool configFromJson(const String &json) {
     if (doc["speakersEnabled"].is<bool>()) config.speakersEnabled = doc["speakersEnabled"];
     if (doc["onboardSpeaker"].is<bool>()) config.onboardSpeaker = doc["onboardSpeaker"];
     if (doc["autoPlay"].is<bool>()) config.autoPlay = doc["autoPlay"];
+    if (doc["preferredResume"].is<bool>()) config.preferredResume = doc["preferredResume"];
     if (doc["brightness"].is<int>()) config.brightness = constrain(doc["brightness"].as<int>(), 5, 100);
     if (doc["bootSelfTest"].is<bool>()) config.bootSelfTest = doc["bootSelfTest"];
     if (doc["webUiEnabled"].is<bool>()) config.webUiEnabled = doc["webUiEnabled"];

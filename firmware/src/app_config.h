@@ -16,6 +16,7 @@ struct AppConfig {
 
     // Audio
     uint8_t volume = 12;         // 0..21
+    bool preferredResume = true; // probe higher-priority URLs and migrate back when stable
     bool speakersEnabled = true;  // external MAX98357A pair (line-out is always live)
     bool onboardSpeaker = true;   // ES8311 codec + onboard mono speaker
     bool autoPlay = true;

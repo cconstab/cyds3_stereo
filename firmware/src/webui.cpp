@@ -55,6 +55,7 @@ small{color:#888}label{display:block;margin-top:8px}
 <label><input type=checkbox id=onboardSpeaker style="width:auto"> Onboard speaker</label>
 <label><input type=checkbox id=speakersEnabled style="width:auto"> External speakers (line-out always on)</label>
 <label><input type=checkbox id=autoPlay style="width:auto"> Auto-play on boot</label>
+<label><input type=checkbox id=preferredResume style="width:auto"> Return to higher-priority stream when it recovers</label>
 <label><input type=checkbox id=bootSelfTest style="width:auto"> Display self-test at power-on (diagnostic)</label>
 <label>Web password (optional)<input id=webUiPassword type=password placeholder="(none)"></label>
 <label>Brightness %<input type=number id=brightness min=5 max=100></label>
@@ -79,20 +80,21 @@ function poll(){fetch('/api/status').then(r=>r.json()).then(s=>{
  $('urlinfo').textContent=s.urlCount?('URL '+(s.urlIndex+1)+'/'+s.urlCount+(s.currentUrl?' — '+s.currentUrl.replace(/^https?:\/\//,''):'')):'';
  $('vul').style.width=(s.vuLeft/127*100)+'%';$('vur').style.width=(s.vuRight/127*100)+'%';
  $('stat').innerHTML=(s.playing?'<span class=ok>playing</span>':'<span class=bad>stopped</span>')
-  +' · '+(s.bitrate?Math.round(s.bitrate/1000)+' kbps':'')+' · buffer '+s.bufferPct+'% · wifi '+s.rssi+' dBm · reconnects '+s.reconnects;
+  +' · '+(s.bitrate?Math.round(s.bitrate/1000)+' kbps':'')+' · buffer '+s.bufferPct+'% · wifi '+s.rssi+' dBm · reconnects '+s.reconnects
+  +(s.probe?' · '+s.probe:'');
  $('fw').textContent=s.fw;$('otamsg').textContent=s.otaMessage||'';
  if(document.activeElement.id!=='vol'){$('vol').value=s.volume;$('volv').textContent=s.volume}
 })}
 function load(){fetch('/api/config').then(r=>r.json()).then(c=>{
  for(const k of ['stationName','wifiSsid','otaBaseUrl','brightness'])$(k).value=c[k]??'';
  $('streamUrls').value=(c.streamUrls||[]).join('\n');
- for(const k of ['speakersEnabled','onboardSpeaker','autoPlay','autoUpdate','bootSelfTest'])$(k).checked=!!c[k];
+ for(const k of ['speakersEnabled','onboardSpeaker','autoPlay','autoUpdate','bootSelfTest','preferredResume'])$(k).checked=!!c[k];
  $('webUiPassword').placeholder=c.webUiPasswordSet?"(set — type new, or 'off' to remove)":"(none — type to set)";
 })}
 function save(){
  const body={stationName:$('stationName').value,wifiSsid:$('wifiSsid').value,
   streamUrls:$('streamUrls').value.split('\n').map(s=>s.trim()).filter(Boolean),
-  speakersEnabled:$('speakersEnabled').checked,onboardSpeaker:$('onboardSpeaker').checked,autoPlay:$('autoPlay').checked,
+  speakersEnabled:$('speakersEnabled').checked,onboardSpeaker:$('onboardSpeaker').checked,autoPlay:$('autoPlay').checked,preferredResume:$('preferredResume').checked,
   autoUpdate:$('autoUpdate').checked,bootSelfTest:$('bootSelfTest').checked,brightness:+$('brightness').value,
   otaBaseUrl:$('otaBaseUrl').value};
  if($('wifiPass').value)body.wifiPass=$('wifiPass').value;
@@ -123,6 +125,7 @@ static void handleStatus() {
     doc["bufferPct"] = ps.bufferPct;
     doc["reconnects"] = ps.reconnects;
     doc["lastError"] = ps.lastError;
+    doc["probe"] = ps.probeMsg;
     doc["volume"] = config.volume;
     doc["rssi"] = netRssi();
     doc["ip"] = netIp();

@@ -12,7 +12,7 @@
 
 static Audio audio; // I2S port 0 -> external stereo bus (MAX98357A x2 + PCM5102A)
 
-enum CmdType : uint8_t { CMD_PLAY, CMD_STOP, CMD_NEXT, CMD_PREV, CMD_VOLUME, CMD_RELOAD, CMD_SPEAKERS };
+enum CmdType : uint8_t { CMD_PLAY, CMD_STOP, CMD_NEXT, CMD_PREV, CMD_VOLUME, CMD_RELOAD, CMD_SPEAKERS, CMD_MIGRATE };
 struct Cmd {
     CmdType type;
     int32_t arg;
@@ -20,6 +20,7 @@ struct Cmd {
 
 static QueueHandle_t cmdQueue;
 static SemaphoreHandle_t statusMutex;
+static SemaphoreHandle_t urlsMutex; // guards the urls vector for the probe task's reads
 static PlayerStatus status;
 static TaskHandle_t audioTaskHandle;
 
@@ -66,6 +67,7 @@ static const uint32_t CONNECT_TIMEOUT_MS = 15000; // no playback after connect -
 static const uint32_t BACKOFF_MAX_MS = 30000;
 
 static void scheduleFailover();
+static void send(CmdType t, int32_t arg = 0);
 
 static void setError(const char *msg) {
     xSemaphoreTake(statusMutex, portMAX_DELAY);
@@ -168,13 +170,23 @@ static void handleCmd(const Cmd &cmd) {
             audio.setVolume(constrain(cmd.arg, 0, 21));
             break;
         case CMD_RELOAD:
+            xSemaphoreTake(urlsMutex, portMAX_DELAY);
             urls = config.streamUrls;
+            xSemaphoreGive(urlsMutex);
             urlIndex = 0;
             backoffMs = 1000;
             if (wantPlaying) startCurrentUrl();
             break;
         case CMD_SPEAKERS:
             applySpeakers(cmd.arg != 0);
+            break;
+        case CMD_MIGRATE: // preferred stream recovered: deliberate switch (not a failure)
+            if (wantPlaying && cmd.arg >= 0 && cmd.arg < (int)urls.size() && cmd.arg < urlIndex) {
+                Serial.printf("[player] migrating back to URL %d\n", (int)cmd.arg + 1);
+                urlIndex = cmd.arg;
+                backoffMs = 1000;
+                startCurrentUrl();
+            }
             break;
     }
 }
@@ -231,7 +243,9 @@ static void audioTask(void *) {
     audio.setVolume(config.volume);
     audio.setConnectionTimeout(5000, 7000);
 
+    xSemaphoreTake(urlsMutex, portMAX_DELAY);
     urls = config.streamUrls;
+    xSemaphoreGive(urlsMutex);
     if (config.autoPlay && !urls.empty()) {
         wantPlaying = true;
         nextAttemptMs = 0;
@@ -252,6 +266,108 @@ static void audioTask(void *) {
     }
 }
 
+// ---- Preferred-stream recovery (core 1, low priority) ----
+// While playing a lower-priority URL, periodically open the better URLs and
+// verify bytes actually flow (no decoding — pure I/O). Two consecutive healthy
+// probes of the same URL trigger a migration back.
+
+#include <HTTPClient.h>
+
+static void setProbeMsg(const char *msg) {
+    xSemaphoreTake(statusMutex, portMAX_DELAY);
+    strlcpy(status.probeMsg, msg, sizeof(status.probeMsg));
+    xSemaphoreGive(statusMutex);
+}
+
+static bool probeUrl(const String &url) {
+    HTTPClient http;
+    http.setConnectTimeout(5000);
+    http.setTimeout(5000);
+    http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+    if (!http.begin(url)) return false;
+    bool ok = false;
+    if (http.GET() == HTTP_CODE_OK) {
+        WiFiClient *s = http.getStreamPtr();
+        uint8_t buf[1024];
+        uint32_t got = 0;
+        uint32_t start = millis(), lastData = start;
+        while (millis() - start < 6000) {
+            size_t avail = s->available();
+            if (avail) {
+                int n = s->readBytes(buf, min(avail, sizeof(buf)));
+                if (n > 0) {
+                    got += n;
+                    lastData = millis();
+                }
+            } else {
+                if (!http.connected() || millis() - lastData > 2500) break;
+                delay(20);
+            }
+        }
+        ok = got >= 30000; // sustained >= ~40kbps for 6s = actually serving audio
+    }
+    http.end();
+    return ok;
+}
+
+static void probeTask(void *) {
+    uint32_t nextProbeMs = 0;
+    int lastCandidate = -1;
+    int streak = 0;
+    int prevIdx = 0;
+    for (;;) {
+        vTaskDelay(pdMS_TO_TICKS(2000));
+
+        PlayerStatus st;
+        playerGetStatus(st);
+        if (!config.preferredResume || !st.playing || st.urlIndex == 0 || WiFi.status() != WL_CONNECTED) {
+            if (st.urlIndex == 0 && status.probeMsg[0]) setProbeMsg("");
+            streak = 0;
+            lastCandidate = -1;
+            if (prevIdx == 0 && st.urlIndex > 0) nextProbeMs = millis() + 90000; // settle first
+            prevIdx = st.urlIndex;
+            continue;
+        }
+        if (prevIdx == 0) nextProbeMs = millis() + 90000; // just failed over: let it settle
+        prevIdx = st.urlIndex;
+        if (millis() < nextProbeMs) continue;
+
+        // Snapshot the better-priority URLs
+        std::vector<String> candidates;
+        xSemaphoreTake(urlsMutex, portMAX_DELAY);
+        for (int i = 0; i < st.urlIndex && i < (int)urls.size(); i++) candidates.push_back(urls[i]);
+        xSemaphoreGive(urlsMutex);
+
+        int passed = -1;
+        for (int i = 0; i < (int)candidates.size(); i++) {
+            char msg[64];
+            snprintf(msg, sizeof(msg), "checking URL %d…", i + 1);
+            setProbeMsg(msg);
+            if (probeUrl(candidates[i])) {
+                passed = i;
+                break;
+            }
+        }
+
+        if (passed >= 0 && passed == lastCandidate) streak++;
+        else streak = (passed >= 0) ? 1 : 0;
+        lastCandidate = passed;
+
+        if (streak >= 2) {
+            char msg[64];
+            snprintf(msg, sizeof(msg), "URL %d recovered, switching back", passed + 1);
+            setProbeMsg(msg);
+            send(CMD_MIGRATE, passed);
+            streak = 0;
+            lastCandidate = -1;
+            nextProbeMs = millis() + 300000; // if the migration bounces, don't flap
+        } else {
+            setProbeMsg(passed >= 0 ? "preferred URL improving…" : "preferred URL still down");
+            nextProbeMs = millis() + 60000;
+        }
+    }
+}
+
 void playerBegin() {
     pinMode(PIN_EXT_AMP_SD, OUTPUT);
     applySpeakers(config.speakersEnabled);
@@ -261,7 +377,9 @@ void playerBegin() {
 
     cmdQueue = xQueueCreate(8, sizeof(Cmd));
     statusMutex = xSemaphoreCreateMutex();
+    urlsMutex = xSemaphoreCreateMutex();
     xTaskCreatePinnedToCore(audioTask, "audio", 8192, nullptr, 5, &audioTaskHandle, 0);
+    xTaskCreatePinnedToCore(probeTask, "probe", 8192, nullptr, 1, nullptr, 1); // low prio, UI core
 
     // Onboard mono speaker: the ES8311 needs MCLK running to complete its
     // power-up, and the audio task starts the I2S clocks in setPinout() —
@@ -297,7 +415,7 @@ void playerGetVu(uint8_t &left, uint8_t &right) {
     xSemaphoreGive(statusMutex);
 }
 
-static void send(CmdType t, int32_t arg = 0) {
+static void send(CmdType t, int32_t arg) {
     Cmd c{t, arg};
     if (cmdQueue) xQueueSend(cmdQueue, &c, pdMS_TO_TICKS(100));
 }
