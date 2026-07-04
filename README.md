@@ -15,6 +15,11 @@ playing, forever, with no human intervention.
   modem-sleep disabled for streaming throughput, independent WiFi reconnect, and OTA
   rollback: the unit always fights its way back to playing. A reconnect counter on the
   Settings screen tracks failovers as a health metric.
+- **Preferred-stream recovery** — the URL list is a quality ranking (e.g. 256k first,
+  128k fallback). While playing a fallback, a background task probes the better URLs
+  (byte-flow check, no decoding) and migrates back automatically once one is stable —
+  two consecutive healthy probes, with settle and cool-down windows to prevent flapping.
+  Toggleable in the web UI (`preferredResume`, default on).
 - **Audio out, three ways** — onboard mono speaker (ES8311 codec, on/off toggle), plus the
   external stereo I2S bus: 2x MAX98357A amps driving speakers and a PCM5102A DAC providing
   RCA line-out. All share one I2S bus and play simultaneously; the speaker amps and the

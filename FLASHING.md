@@ -149,5 +149,8 @@ After setup, the web config page is available anytime at `http://<device-ip>/`
    speakers/RCA; "External speakers" switch mutes the amps, line-out stays live.
 5. Kill the active stream URL (or WiFi) — player fails over / recovers on its own
    (watch the `2/3 <url>` status line and the reconnect counter in Settings).
+   With the URL restored, the web status line shows the probe cycle
+   (`checking URL 1…` → `URL 1 recovered, switching back`) and playback migrates
+   back to the higher-priority stream within ~3–4 minutes (90s settle + two probes).
 6. `http://<device-ip>/` loads the web config; volume slider works live.
 7. Settings → "Update" reports "up to date" (or installs a newer published build).
