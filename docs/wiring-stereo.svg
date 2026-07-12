@@ -1,0 +1,164 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 890" font-family="Helvetica, Arial, sans-serif">
+  <rect width="1080" height="890" fill="#ffffff"/>
+  <text x="40" y="40" font-size="22" font-weight="bold" fill="#111">CYD-S3 Stereo — external audio wiring (FNK0104B / FNK0104S)</text>
+  <text x="40" y="62" font-size="13" fill="#555">One shared I2S bus fans out to both amps and the DAC. All grounds common. Power everything from the board's 5V.</text>
+
+  <!-- ============ Board ============ -->
+  <rect x="40" y="110" width="260" height="450" rx="10" fill="#f3f4f6" stroke="#111" stroke-width="2"/>
+  <text x="170" y="140" font-size="16" font-weight="bold" text-anchor="middle" fill="#111">Freenove FNK0104</text>
+  <text x="170" y="158" font-size="12" text-anchor="middle" fill="#555">ESP32-S3 touch display</text>
+  <text x="170" y="526" font-size="11" text-anchor="middle" fill="#777">pins are on the Extended IO / UART aux</text>
+  <text x="170" y="540" font-size="11" text-anchor="middle" fill="#777">connectors — confirm with continuity check</text>
+
+  <!-- board pins -->
+  <g font-size="13" font-weight="bold">
+    <circle cx="300" cy="190" r="5" fill="#16a34a"/><text x="290" y="194" text-anchor="end" fill="#16a34a">GPIO 2  (BCLK)</text>
+    <circle cx="300" cy="230" r="5" fill="#2563eb"/><text x="290" y="234" text-anchor="end" fill="#2563eb">GPIO 3  (LRC)</text>
+    <circle cx="300" cy="270" r="5" fill="#ea580c"/><text x="290" y="274" text-anchor="end" fill="#ea580c">GPIO 21 (DIN)</text>
+    <circle cx="300" cy="310" r="5" fill="#9333ea"/><text x="290" y="314" text-anchor="end" fill="#9333ea">GPIO 14 (mute)</text>
+    <circle cx="300" cy="390" r="5" fill="#dc2626"/><text x="290" y="394" text-anchor="end" fill="#dc2626">5V</text>
+    <circle cx="300" cy="430" r="5" fill="#374151"/><text x="290" y="434" text-anchor="end" fill="#374151">GND</text>
+  </g>
+
+  <!-- ============ Bus trunks ============ -->
+  <!-- BCLK green -->
+  <g stroke="#16a34a" stroke-width="2.5" fill="none">
+    <polyline points="300,190 360,190"/>
+    <polyline points="360,168 360,600"/>
+    <polyline points="360,168 640,168"/>
+    <polyline points="360,368 640,368"/>
+    <polyline points="360,600 640,600"/>
+  </g>
+  <g fill="#16a34a"><circle cx="360" cy="190" r="4"/><circle cx="360" cy="368" r="4"/></g>
+
+  <!-- LRC blue -->
+  <g stroke="#2563eb" stroke-width="2.5" fill="none">
+    <polyline points="300,230 392,230"/>
+    <polyline points="392,192 392,624"/>
+    <polyline points="392,192 640,192"/>
+    <polyline points="392,392 640,392"/>
+    <polyline points="392,624 640,624"/>
+  </g>
+  <g fill="#2563eb"><circle cx="392" cy="230" r="4"/><circle cx="392" cy="392" r="4"/></g>
+
+  <!-- DIN orange -->
+  <g stroke="#ea580c" stroke-width="2.5" fill="none">
+    <polyline points="300,270 424,270"/>
+    <polyline points="424,216 424,648"/>
+    <polyline points="424,216 640,216"/>
+    <polyline points="424,416 640,416"/>
+    <polyline points="424,648 640,648"/>
+  </g>
+  <g fill="#ea580c"><circle cx="424" cy="270" r="4"/><circle cx="424" cy="416" r="4"/></g>
+
+  <!-- GPIO14 purple: direct to left SD, via 220k to right SD -->
+  <g stroke="#9333ea" stroke-width="2.5" fill="none">
+    <polyline points="300,310 456,310"/>
+    <polyline points="456,240 456,440"/>
+    <polyline points="456,240 640,240"/>
+    <polyline points="456,440 520,440"/>
+    <polyline points="520,440 528,428 540,452 552,428 564,452 576,428 584,440 640,440"/>
+  </g>
+  <g fill="#9333ea"><circle cx="456" cy="310" r="4"/><circle cx="456" cy="240" r="4"/></g>
+  <text x="552" y="470" font-size="12" font-weight="bold" fill="#9333ea" text-anchor="middle">220 kΩ</text>
+  <text x="500" y="258" font-size="11" fill="#9333ea">direct</text>
+
+  <!-- 5V red -->
+  <g stroke="#dc2626" stroke-width="2.5" fill="none">
+    <polyline points="300,390 488,390"/>
+    <polyline points="488,120 488,552"/>
+    <polyline points="488,120 640,120"/>
+    <polyline points="488,320 640,320"/>
+    <polyline points="488,552 640,552"/>
+  </g>
+  <g fill="#dc2626"><circle cx="488" cy="390" r="4"/><circle cx="488" cy="120" r="4"/><circle cx="488" cy="320" r="4"/></g>
+
+  <!-- GND dark -->
+  <g stroke="#374151" stroke-width="2.5" fill="none">
+    <polyline points="300,430 520,430"/>
+    <polyline points="520,144 520,672"/>
+    <polyline points="520,144 640,144"/>
+    <polyline points="520,344 640,344"/>
+    <polyline points="520,576 640,576"/>
+    <polyline points="520,672 640,672"/>
+  </g>
+  <g fill="#374151"><circle cx="520" cy="430" r="4"/><circle cx="520" cy="144" r="4"/><circle cx="520" cy="344" r="4"/><circle cx="520" cy="576" r="4"/></g>
+
+  <!-- ============ MAX98357A LEFT ============ -->
+  <rect x="640" y="96" width="220" height="170" rx="8" fill="#eef6ff" stroke="#111" stroke-width="2"/>
+  <text x="750" y="116" font-size="14" font-weight="bold" text-anchor="middle" fill="#111">MAX98357A — LEFT</text>
+  <g font-size="12" fill="#111">
+    <text x="652" y="124">Vin</text>
+    <text x="652" y="148">GND</text>
+    <text x="652" y="172">BCLK</text>
+    <text x="652" y="196">LRC</text>
+    <text x="652" y="220">DIN</text>
+    <text x="652" y="244">SD</text>
+  </g>
+  <text x="700" y="244" font-size="11" fill="#9333ea">3.3V &gt; 1.4V → plays LEFT</text>
+  <text x="750" y="260" font-size="10" text-anchor="middle" fill="#777">GAIN: leave unconnected (9 dB)</text>
+  <g stroke="#111" stroke-width="2" fill="none">
+    <polyline points="860,150 920,150"/>
+    <polyline points="860,180 920,180"/>
+    <rect x="920" y="140" width="16" height="50" fill="#f3f4f6"/>
+    <polygon points="936,140 968,120 968,210 936,190" fill="#f3f4f6"/>
+  </g>
+  <text x="930" y="230" font-size="12" fill="#111">Speaker L (4Ω 3W)</text>
+  <text x="866" y="145" font-size="10" fill="#555">+</text><text x="866" y="196" font-size="10" fill="#555">−</text>
+
+  <!-- ============ MAX98357A RIGHT ============ -->
+  <rect x="640" y="296" width="220" height="170" rx="8" fill="#eef6ff" stroke="#111" stroke-width="2"/>
+  <text x="750" y="316" font-size="14" font-weight="bold" text-anchor="middle" fill="#111">MAX98357A — RIGHT</text>
+  <g font-size="12" fill="#111">
+    <text x="652" y="324">Vin</text>
+    <text x="652" y="348">GND</text>
+    <text x="652" y="372">BCLK</text>
+    <text x="652" y="396">LRC</text>
+    <text x="652" y="420">DIN</text>
+    <text x="652" y="444">SD</text>
+  </g>
+  <text x="700" y="444" font-size="11" fill="#9333ea">≈1.0V (0.77–1.4V) → RIGHT</text>
+  <text x="750" y="460" font-size="10" text-anchor="middle" fill="#777">GAIN: leave unconnected (9 dB)</text>
+  <g stroke="#111" stroke-width="2" fill="none">
+    <polyline points="860,350 920,350"/>
+    <polyline points="860,380 920,380"/>
+    <rect x="920" y="340" width="16" height="50" fill="#f3f4f6"/>
+    <polygon points="936,340 968,320 968,410 936,390" fill="#f3f4f6"/>
+  </g>
+  <text x="930" y="430" font-size="12" fill="#111">Speaker R (4Ω 3W)</text>
+  <text x="866" y="345" font-size="10" fill="#555">+</text><text x="866" y="396" font-size="10" fill="#555">−</text>
+
+  <!-- ============ PCM5102A ============ -->
+  <rect x="640" y="510" width="220" height="196" rx="8" fill="#fdf4ff" stroke="#111" stroke-width="2"/>
+  <text x="750" y="530" font-size="14" font-weight="bold" text-anchor="middle" fill="#111">PCM5102A DAC (line out)</text>
+  <g font-size="12" fill="#111">
+    <text x="652" y="556">VIN</text>
+    <text x="652" y="580">GND</text>
+    <text x="652" y="604">BCK</text>
+    <text x="652" y="628">LCK</text>
+    <text x="652" y="652">DIN</text>
+    <text x="652" y="676">SCK → GND</text>
+  </g>
+  <text x="750" y="696" font-size="9" text-anchor="middle" fill="#777">bridges: FLT=L · DEMP=L · XSMT=H · FMT=L</text>
+  <g stroke="#111" stroke-width="2" fill="none">
+    <polyline points="860,560 930,560"/>
+    <polyline points="860,600 930,600"/>
+  </g>
+  <circle cx="945" cy="560" r="13" fill="#fff" stroke="#b91c1c" stroke-width="4"/>
+  <circle cx="945" cy="600" r="13" fill="#fff" stroke="#6b7280" stroke-width="4"/>
+  <text x="968" y="565" font-size="12" fill="#111">RCA R (red)</text>
+  <text x="968" y="605" font-size="12" fill="#111">RCA L (white)</text>
+  <text x="875" y="632" font-size="10" fill="#777">via 3.5mm jack or L/R/G pads</text>
+
+  <!-- ============ Notes ============ -->
+  <rect x="40" y="716" width="620" height="158" rx="8" fill="#fffbeb" stroke="#d97706" stroke-width="1.5"/>
+  <text x="56" y="740" font-size="13" font-weight="bold" fill="#92400e">SD pin = mute AND channel select (internal 100 kΩ pulldown)</text>
+  <g font-size="12" fill="#78350f">
+    <text x="56" y="762">&lt;0.16V off  ·  0.16–0.77V (L+R)/2  ·  0.77–1.4V RIGHT  ·  &gt;1.4V LEFT</text>
+    <text x="56" y="784">GPIO14 HIGH: left amp gets 3.3V (LEFT), right amp ~1.0V via 220k (RIGHT).</text>
+    <text x="56" y="806">GPIO14 LOW: both SD at 0V → both amps off; RCA line-out keeps playing.</text>
+    <text x="56" y="828">Adafruit breakouts: remove the on-board 1MΩ SD→Vin resistor, or the right amp only</text>
+    <text x="56" y="844">half-mutes (~0.3V = mix mode). Bare clone boards without that resistor: no change needed.</text>
+    <text x="56" y="866" font-size="11" fill="#92400e">No mute wanted? Skip GPIO14 entirely: left amp SD→5V direct, right amp SD→5V via 470 kΩ.</text>
+  </g>
+</svg>

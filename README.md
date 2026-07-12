@@ -40,8 +40,8 @@ playing, forever, with no human intervention.
 
 Freenove FNK0104B (ESP32-S3R8, 16 MB flash / 8 MB PSRAM, 2.8" 240x320 ILI9341 touch) or
 FNK0104S (4.0" 320x480 ST7796), plus ~$40 of audio add-ons for stereo. Full rationale,
-parts list with prices, wiring tables, and first-power-up checklist:
-**[HARDWARE.md](HARDWARE.md)**.
+parts list with prices, the [wiring diagram](docs/wiring-stereo.svg), and first-power-up
+checklist: **[HARDWARE.md](HARDWARE.md)**.
 
 ## Software stack
 

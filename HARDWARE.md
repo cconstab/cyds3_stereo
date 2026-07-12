@@ -63,19 +63,36 @@ multiple listeners happily — giving speaker output and RCA line-out simultaneo
 
 ### Wiring
 
+![Wiring diagram](docs/wiring-stereo.svg)
+
 One I2S bus fans out to all three audio boards in parallel. No soldering on the Freenove board —
 signals come off the external connectors via the included 4P cables.
 
-| FNK0104S pin | MAX98357A x2 | PCM5102A |
+| Board pin | MAX98357A x2 | PCM5102A |
 |---|---|---|
 | GPIO 2 | BCLK | BCK |
 | GPIO 3 | LRC | LCK |
 | GPIO 21 | DIN | DIN |
 | 5 V | Vin | VIN |
 | GND | GND | GND |
-| spare GPIO (e.g. 14) | SD_MODE (mute control, optional) | — |
+| GPIO 14 | SD: **direct** to LEFT amp, **via 220 kΩ** to RIGHT amp | — |
 
-Channel select on the amps: Amp A SD_MODE jumper = **Left**, Amp B = **Right**.
+**SD pin: mute and channel select on one pin.** The MAX98357A's SD input (internal 100 kΩ
+pulldown) sets both: <0.16 V = off, 0.16–0.77 V = (L+R)/2 mix, 0.77–1.4 V = right channel,
+>1.4 V = left channel. The GPIO 14 wiring above exploits that:
+
+- GPIO 14 **HIGH** (speakers on): left amp sees 3.3 V (>1.4 → LEFT), right amp sees ~1.0 V
+  through the 220 kΩ divider against the internal 100 kΩ (0.77–1.4 → RIGHT).
+- GPIO 14 **LOW** (speakers off): both SD pins at 0 V → both amps shut down; the PCM5102A
+  line-out keeps playing (that's the firmware's "External speakers" switch).
+- **Adafruit breakouts only:** they ship a 1 MΩ SD→Vin resistor on the board — remove it,
+  or when muted the right amp floats to ~0.3 V (mix mode, quietly still playing). The bare
+  clone boards without that resistor need no change.
+- **Don't want hardware mute?** Skip GPIO 14: left amp SD → 5 V direct, right amp
+  SD → 5 V via 470 kΩ. (The firmware speaker switch then has no effect.)
+
+PCM5102A: tie **SCK to GND** (internal PLL) and check the four solder bridges:
+FLT=L, DEMP=L, XSMT=H, FMT=L (usually the shipped default).
 
 PCM5102A one-time setup:
 
