@@ -125,8 +125,9 @@ the web config and move **one wire**: PCM5102A **DIN from GPIO 21 to GPIO 43** (
 pin on the UART connector — free because the console runs over native USB). BCK/LCK stay
 shared on GPIO 2/3.
 
-**Alternative pin:** set "Line-out DIN GPIO" to **14** (Extended IO header) if that's more
-accessible on your build. GPIO 14 was the hardware amp-mute line, but with fixed line-out
+**Alternative pin:** GPIO **14** (Extended IO header) can carry the line-out DIN instead —
+set it via the config API (`curl -X POST -d '{"lineOutPin":14}' .../api/config` + reboot);
+it's deliberately not in the web UI since it must match physical wiring. GPIO 14 was the hardware amp-mute line, but with fixed line-out
 active **no mute pin is needed at all**: the "External speakers" switch mutes the amps by
 zeroing their I2S0 data stream in firmware, while the line-out (I2S1) keeps playing.
 Channel-select the amps statically instead: left SD → 5 V direct, right SD → 5 V via

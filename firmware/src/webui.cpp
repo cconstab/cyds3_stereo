@@ -56,11 +56,7 @@ small{color:#888}label{display:block;margin-top:8px}
 <label><input type=checkbox id=speakersEnabled style="width:auto"> External speaker amps (mute leaves line-out playing)</label>
 <label><input type=checkbox id=lineOutFixed style="width:auto"> Fixed line-out level — RCA level independent of volume (needs the one-wire DIN mod, see HARDWARE.md)</label>
 <label>Line-out level % <input type=number id=lineOutLevel min=0 max=100></label>
-<label>Line-out DIN pin (reboot to apply)
-<select id=lineOutPin>
- <option value=43>GPIO 43 — TXD0 pin on UART connector</option>
- <option value=14>GPIO 14 — Extended IO header</option>
-</select></label>
+<small>Line-out DIN is GPIO 43 (the TXD0 pin). Alternative pin for custom builds: set lineOutPin via the config API.</small>
 
 <h2>Display</h2>
 <label>Brightness % <input type=number id=brightness min=5 max=100></label>
@@ -105,7 +101,7 @@ function poll(){fetch('/api/status').then(r=>r.json()).then(s=>{
  if(document.activeElement.id!=='vol'){$('vol').value=s.volume;$('volv').textContent=s.volume}
 })}
 function load(){fetch('/api/config').then(r=>r.json()).then(c=>{
- for(const k of ['stationName','wifiSsid','otaBaseUrl','brightness','lineOutLevel','lineOutPin'])$(k).value=c[k]??'';
+ for(const k of ['stationName','wifiSsid','otaBaseUrl','brightness','lineOutLevel'])$(k).value=c[k]??'';
  $('streamUrls').value=(c.streamUrls||[]).join('\n');
  for(const k of ['speakersEnabled','onboardSpeaker','autoPlay','autoUpdate','bootSelfTest','preferredResume','lineOutFixed'])$(k).checked=!!c[k];
  $('webUiPassword').placeholder=c.webUiPasswordSet?"(set — type new, or 'off' to remove)":"(none — type to set)";
@@ -114,7 +110,7 @@ function save(){
  const body={stationName:$('stationName').value,wifiSsid:$('wifiSsid').value,
   streamUrls:$('streamUrls').value.split('\n').map(s=>s.trim()).filter(Boolean),
   speakersEnabled:$('speakersEnabled').checked,onboardSpeaker:$('onboardSpeaker').checked,autoPlay:$('autoPlay').checked,preferredResume:$('preferredResume').checked,
-  autoUpdate:$('autoUpdate').checked,bootSelfTest:$('bootSelfTest').checked,lineOutFixed:$('lineOutFixed').checked,lineOutLevel:+$('lineOutLevel').value,lineOutPin:+$('lineOutPin').value,brightness:+$('brightness').value,
+  autoUpdate:$('autoUpdate').checked,bootSelfTest:$('bootSelfTest').checked,lineOutFixed:$('lineOutFixed').checked,lineOutLevel:+$('lineOutLevel').value,brightness:+$('brightness').value,
   otaBaseUrl:$('otaBaseUrl').value};
  if($('wifiPass').value)body.wifiPass=$('wifiPass').value;
  const wp=$('webUiPassword').value;
