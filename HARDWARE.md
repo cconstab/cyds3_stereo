@@ -94,9 +94,9 @@ pulldown) sets both: <0.16 V = off, 0.16–0.77 V = (L+R)/2 mix, 0.77–1.4 V = 
 **PCM5102A (GY-PCM5102 module): the solder pads ship OPEN — the board is silent until
 you solder them.** Verified on real hardware:
 
-- **Bottom side:** bridge the `SCK=GND` jumper pad (gives the chip its internal PLL clock;
-  floating SCK = no output at all).
-- **Top side:** bridge the four config pad pairs (`H?L` pads next to FLT/DEMP/XSMT/FMT):
+- **Top side (component side):** bridge the `SCK=GND` jumper pad (gives the chip its
+  internal PLL clock; floating SCK = no output at all).
+- **Underside:** bridge the four config pad pairs (`H?L` pads next to FLT/DEMP/XSMT/FMT):
   **FLT→L, DEMP→L, XSMT→H, FMT→L**. XSMT left open = soft-mute engaged = silence even
   with everything else correct.
 
