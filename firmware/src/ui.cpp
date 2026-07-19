@@ -343,8 +343,9 @@ static void buildWifi() {
 }
 
 static void buildSettings() {
-    const int rowH = big ? 44 : 34;
-    const int y0 = big ? 56 : 42;
+    const int rowH = big ? 48 : 40;
+    const int headerH = big ? 52 : 44;
+    const int halfW = (W - PAD * 3) / 2;
 
     scrSettings = lv_obj_create(nullptr);
     lv_obj_set_style_bg_color(scrSettings, lv_color_hex(0x0b0f14), 0);
@@ -356,166 +357,135 @@ static void buildSettings() {
 
     lv_obj_t *btnBack = lv_btn_create(scrSettings);
     styleBtn(btnBack);
-    lv_obj_set_size(btnBack, big ? 84 : 74, big ? 40 : 34);
+    lv_obj_set_size(btnBack, big ? 84 : 74, headerH - 12);
     lv_obj_align(btnBack, LV_ALIGN_TOP_RIGHT, -PAD, 6);
     lv_obj_add_event_cb(btnBack, [](lv_event_t *) { lv_scr_load(scrMain); }, LV_EVENT_CLICKED, nullptr);
     lv_obj_t *bl = lv_label_create(btnBack);
     lv_label_set_text(bl, LV_SYMBOL_LEFT " Back");
     lv_obj_center(bl);
 
-    // Brightness
-    lv_obj_t *lb = lv_label_create(scrSettings);
-    lv_label_set_text(lb, "Brightness");
-    lv_obj_align(lb, LV_ALIGN_TOP_LEFT, PAD, y0 + 4);
-    sliderBright = lv_slider_create(scrSettings);
-    styleSlider(sliderBright);
-    lv_slider_set_range(sliderBright, 5, 100);
-    lv_slider_set_value(sliderBright, config.brightness, LV_ANIM_OFF);
-    lv_obj_set_size(sliderBright, W - 130 - PAD * 2, 12);
-    lv_obj_align(sliderBright, LV_ALIGN_TOP_LEFT, PAD + 120, y0 + 6);
-    lv_obj_add_event_cb(sliderBright, [](lv_event_t *e) {
-        int v = lv_slider_get_value(lv_event_get_target(e));
-        config.brightness = v;
-        displaySetBrightness(v);
-        if (lv_event_get_code(e) == LV_EVENT_RELEASED) configSave();
-    }, LV_EVENT_ALL, nullptr);
+    // Tabbed body: Audio / Network / System
+    lv_obj_t *tv = lv_tabview_create(scrSettings, LV_DIR_TOP, big ? 40 : 32);
+    lv_obj_set_size(tv, W, H - headerH);
+    lv_obj_set_pos(tv, 0, headerH);
+    lv_obj_set_style_bg_color(tv, lv_color_hex(0x0b0f14), 0);
+    lv_obj_t *tabBtns = lv_tabview_get_tab_btns(tv);
+    lv_obj_set_style_bg_color(tabBtns, lv_color_hex(0x11161d), 0);
+    lv_obj_set_style_text_color(tabBtns, lv_color_hex(0x9ca3af), 0);
+    lv_obj_set_style_text_color(tabBtns, lv_color_hex(0xffffff), LV_PART_ITEMS | LV_STATE_CHECKED);
 
-    // Onboard speaker switch
-    lv_obj_t *lo = lv_label_create(scrSettings);
-    lv_label_set_text(lo, "Onboard speaker");
-    lv_obj_align(lo, LV_ALIGN_TOP_LEFT, PAD, y0 + rowH + 6);
-    lv_obj_t *swOnboard = lv_switch_create(scrSettings);
-    lv_obj_align(swOnboard, LV_ALIGN_TOP_RIGHT, -PAD, y0 + rowH);
-    if (config.onboardSpeaker) lv_obj_add_state(swOnboard, LV_STATE_CHECKED);
-    lv_obj_add_event_cb(swOnboard, [](lv_event_t *e) {
+    lv_obj_t *tabAudio = lv_tabview_add_tab(tv, "Audio");
+    lv_obj_t *tabNet = lv_tabview_add_tab(tv, "Network");
+    lv_obj_t *tabSys = lv_tabview_add_tab(tv, "System");
+    for (lv_obj_t *t : {tabAudio, tabNet, tabSys}) {
+        lv_obj_set_style_pad_hor(t, PAD, 0);
+        lv_obj_set_style_pad_top(t, 6, 0);
+    }
+
+    // -- row helpers (content-area coordinates) --
+    auto addSwitch = [&](lv_obj_t *parent, int row, const char *txt, bool checked, lv_event_cb_t cb) {
+        lv_obj_t *l = lv_label_create(parent);
+        lv_label_set_text(l, txt);
+        lv_obj_align(l, LV_ALIGN_TOP_LEFT, 0, row * rowH + 8);
+        lv_obj_t *sw = lv_switch_create(parent);
+        lv_obj_align(sw, LV_ALIGN_TOP_RIGHT, 0, row * rowH + 2);
+        if (checked) lv_obj_add_state(sw, LV_STATE_CHECKED);
+        lv_obj_add_event_cb(sw, cb, LV_EVENT_VALUE_CHANGED, nullptr);
+        return sw;
+    };
+    auto addSlider = [&](lv_obj_t *parent, int row, const char *txt, int mn, int mx, int val, lv_event_cb_t cb) {
+        lv_obj_t *l = lv_label_create(parent);
+        lv_label_set_text(l, txt);
+        lv_obj_align(l, LV_ALIGN_TOP_LEFT, 0, row * rowH + 8);
+        lv_obj_t *s = lv_slider_create(parent);
+        styleSlider(s);
+        lv_slider_set_range(s, mn, mx);
+        lv_slider_set_value(s, val, LV_ANIM_OFF);
+        lv_obj_set_size(s, W - 130 - PAD * 2, 12);
+        lv_obj_align(s, LV_ALIGN_TOP_RIGHT, -6, row * rowH + 10);
+        lv_obj_add_event_cb(s, cb, LV_EVENT_ALL, nullptr);
+        return s;
+    };
+    auto addBtn = [&](lv_obj_t *parent, int col, int row, const char *txt, lv_event_cb_t cb) {
+        lv_obj_t *btn = lv_btn_create(parent);
+        styleBtn(btn);
+        lv_obj_set_size(btn, halfW, rowH - 8);
+        lv_obj_align(btn, LV_ALIGN_TOP_LEFT, col * (halfW + PAD), row * rowH + 2);
+        lv_obj_add_event_cb(btn, cb, LV_EVENT_CLICKED, nullptr);
+        lv_obj_t *l = lv_label_create(btn);
+        lv_label_set_text(l, txt);
+        lv_obj_center(l);
+        return btn;
+    };
+
+    // ---- Audio tab ----
+    addSwitch(tabAudio, 0, "Onboard speaker", config.onboardSpeaker, [](lv_event_t *e) {
         bool on = lv_obj_has_state(lv_event_get_target(e), LV_STATE_CHECKED);
         config.onboardSpeaker = on;
         playerSetOnboardSpeaker(on);
         configSave();
-    }, LV_EVENT_VALUE_CHANGED, nullptr);
-
-    // External speakers switch
-    lv_obj_t *ls = lv_label_create(scrSettings);
-    lv_label_set_text(ls, big ? "External speakers (line-out stays on)" : "External spk");
-    lv_obj_align(ls, LV_ALIGN_TOP_LEFT, PAD, y0 + rowH * 2 + 6);
-    swSpeakers = lv_switch_create(scrSettings);
-    lv_obj_align(swSpeakers, LV_ALIGN_TOP_RIGHT, -PAD, y0 + rowH * 2);
-    if (config.speakersEnabled) lv_obj_add_state(swSpeakers, LV_STATE_CHECKED);
-    lv_obj_add_event_cb(swSpeakers, [](lv_event_t *e) {
+    });
+    swSpeakers = addSwitch(tabAudio, 1, "External speakers", config.speakersEnabled, [](lv_event_t *e) {
         bool on = lv_obj_has_state(lv_event_get_target(e), LV_STATE_CHECKED);
         config.speakersEnabled = on;
         playerSetSpeakers(on);
         configSave();
-    }, LV_EVENT_VALUE_CHANGED, nullptr);
-
-    // Web interface switch (on-screen only, so remote config can't lock itself out)
-    lv_obj_t *lw = lv_label_create(scrSettings);
-    lv_label_set_text(lw, "Web interface");
-    lv_obj_align(lw, LV_ALIGN_TOP_LEFT, PAD, y0 + rowH * 3 + 6);
-    lv_obj_t *swWeb = lv_switch_create(scrSettings);
-    lv_obj_align(swWeb, LV_ALIGN_TOP_RIGHT, -PAD, y0 + rowH * 3);
-    if (config.webUiEnabled) lv_obj_add_state(swWeb, LV_STATE_CHECKED);
-    lv_obj_add_event_cb(swWeb, [](lv_event_t *e) {
-        config.webUiEnabled = lv_obj_has_state(lv_event_get_target(e), LV_STATE_CHECKED);
-        configSave(); // webuiLoop applies it on the next tick
-    }, LV_EVENT_VALUE_CHANGED, nullptr);
-
-    // Fixed line-out toggle (I2S1; DIN pin per config.lineOutPin)
-    lv_obj_t *lf = lv_label_create(scrSettings);
-    lv_label_set_text(lf, "Fixed line-out");
-    lv_obj_align(lf, LV_ALIGN_TOP_LEFT, PAD, y0 + rowH * 4 + 6);
-    lv_obj_t *swLineFixed = lv_switch_create(scrSettings);
-    lv_obj_align(swLineFixed, LV_ALIGN_TOP_RIGHT, -PAD, y0 + rowH * 4);
-    if (config.lineOutFixed) lv_obj_add_state(swLineFixed, LV_STATE_CHECKED);
-    lv_obj_add_event_cb(swLineFixed, [](lv_event_t *e) {
+    });
+    addSwitch(tabAudio, 2, "Fixed line-out", config.lineOutFixed, [](lv_event_t *e) {
         bool on = lv_obj_has_state(lv_event_get_target(e), LV_STATE_CHECKED);
         config.lineOutFixed = on;
         playerSetLineOutFixed(on);
         configSave();
-    }, LV_EVENT_VALUE_CHANGED, nullptr);
-
-    // Line-out level slider (independent of volume when fixed line-out is wired)
-    lv_obj_t *ll = lv_label_create(scrSettings);
-    lv_label_set_text(ll, "Line out");
-    lv_obj_align(ll, LV_ALIGN_TOP_LEFT, PAD, y0 + rowH * 5 + 6);
-    lv_obj_t *sliderLine = lv_slider_create(scrSettings);
-    styleSlider(sliderLine);
-    lv_slider_set_range(sliderLine, 0, 100);
-    lv_slider_set_value(sliderLine, config.lineOutLevel, LV_ANIM_OFF);
-    lv_obj_set_size(sliderLine, W - 130 - PAD * 2, 12);
-    lv_obj_align(sliderLine, LV_ALIGN_TOP_LEFT, PAD + 120, y0 + rowH * 5 + 8);
-    lv_obj_add_event_cb(sliderLine, [](lv_event_t *e) {
+    });
+    addSlider(tabAudio, 3, "Line out", 0, 100, config.lineOutLevel, [](lv_event_t *e) {
         int v = lv_slider_get_value(lv_event_get_target(e));
         config.lineOutLevel = v;
         playerSetLineOutLevel(v);
         if (lv_event_get_code(e) == LV_EVENT_RELEASED) configSave();
-    }, LV_EVENT_ALL, nullptr);
+    });
 
-    // Buttons row: update check + wifi portal
-    const int btnRowY = y0 + rowH * 6 + 4;
-    const int halfW = (W - PAD * 3) / 2;
-    lv_obj_t *btnUpd = lv_btn_create(scrSettings);
-    styleBtn(btnUpd);
-    lv_obj_set_size(btnUpd, halfW, rowH);
-    lv_obj_align(btnUpd, LV_ALIGN_TOP_LEFT, PAD, btnRowY);
-    lv_obj_add_event_cb(btnUpd, [](lv_event_t *) { otaCheckNow(true); }, LV_EVENT_CLICKED, nullptr);
-    lv_obj_t *ul = lv_label_create(btnUpd);
-    lv_label_set_text(ul, LV_SYMBOL_DOWNLOAD " Update");
-    lv_obj_center(ul);
-
-    lv_obj_t *btnWifi = lv_btn_create(scrSettings);
-    styleBtn(btnWifi);
-    lv_obj_set_size(btnWifi, halfW, rowH);
-    lv_obj_align(btnWifi, LV_ALIGN_TOP_LEFT, PAD * 2 + halfW, btnRowY);
-    lv_obj_add_event_cb(btnWifi, [](lv_event_t *) {
+    // ---- Network tab ----
+    addSwitch(tabNet, 0, "Web interface", config.webUiEnabled, [](lv_event_t *e) {
+        config.webUiEnabled = lv_obj_has_state(lv_event_get_target(e), LV_STATE_CHECKED);
+        configSave(); // webuiLoop applies it on the next tick
+    });
+    addBtn(tabNet, 0, 1, LV_SYMBOL_WIFI " WiFi setup", [](lv_event_t *) {
         wifiStartScan();
         lv_scr_load(scrWifi);
-    }, LV_EVENT_CLICKED, nullptr);
-    lv_obj_t *wl = lv_label_create(btnWifi);
-    lv_label_set_text(wl, LV_SYMBOL_WIFI " WiFi setup");
-    lv_obj_center(wl);
-
-    // Second row: station URL editor + screen off
-    const int btnRowY2 = btnRowY + rowH + 8;
-    lv_obj_t *btnUrls = lv_btn_create(scrSettings);
-    styleBtn(btnUrls);
-    lv_obj_set_size(btnUrls, halfW, rowH);
-    lv_obj_align(btnUrls, LV_ALIGN_TOP_LEFT, PAD, btnRowY2);
-    lv_obj_add_event_cb(btnUrls, [](lv_event_t *) {
+    });
+    addBtn(tabNet, 1, 1, LV_SYMBOL_LIST " Stations", [](lv_event_t *) {
         String all;
         for (auto &u : config.streamUrls) {
             all += u;
             all += "\n";
         }
         openEditor(ET_URLS, "Stream URLs (one per line)", all.c_str(), false);
-    }, LV_EVENT_CLICKED, nullptr);
-    lv_obj_t *ul2 = lv_label_create(btnUrls);
-    lv_label_set_text(ul2, LV_SYMBOL_LIST " Stations");
-    lv_obj_center(ul2);
+    });
 
-    lv_obj_t *btnScreen = lv_btn_create(scrSettings);
-    styleBtn(btnScreen);
-    lv_obj_set_size(btnScreen, halfW, rowH);
-    lv_obj_align(btnScreen, LV_ALIGN_TOP_LEFT, PAD * 2 + halfW, btnRowY2);
-    lv_obj_add_event_cb(btnScreen, [](lv_event_t *) { displayScreenOff(); }, LV_EVENT_CLICKED, nullptr);
-    lv_obj_t *sl2 = lv_label_create(btnScreen);
-    lv_label_set_text(sl2, LV_SYMBOL_EYE_CLOSE " Screen off");
-    lv_obj_center(sl2);
+    // ---- System tab ----
+    sliderBright = addSlider(tabSys, 0, "Brightness", 5, 100, config.brightness, [](lv_event_t *e) {
+        int v = lv_slider_get_value(lv_event_get_target(e));
+        config.brightness = v;
+        displaySetBrightness(v);
+        if (lv_event_get_code(e) == LV_EVENT_RELEASED) configSave();
+    });
+    addBtn(tabSys, 0, 1, LV_SYMBOL_DOWNLOAD " Update", [](lv_event_t *) { otaCheckNow(true); });
+    addBtn(tabSys, 1, 1, LV_SYMBOL_EYE_CLOSE " Screen off", [](lv_event_t *) { displayScreenOff(); });
 
-    lblOta = lv_label_create(scrSettings);
+    lblOta = lv_label_create(tabSys);
     lv_obj_set_style_text_font(lblOta, &lv_font_montserrat_12, 0);
     lv_obj_set_style_text_color(lblOta, lv_color_hex(0x9ca3af), 0);
     lv_obj_set_width(lblOta, W - PAD * 2);
     lv_label_set_long_mode(lblOta, LV_LABEL_LONG_DOT);
-    lv_obj_align(lblOta, LV_ALIGN_TOP_LEFT, PAD, btnRowY2 + rowH + 10);
+    lv_obj_align(lblOta, LV_ALIGN_TOP_LEFT, 0, 2 * rowH + 8);
     lv_label_set_text(lblOta, "");
 
-    lblInfo = lv_label_create(scrSettings);
+    lblInfo = lv_label_create(tabSys);
     lv_obj_set_style_text_font(lblInfo, &lv_font_montserrat_12, 0);
     lv_obj_set_style_text_color(lblInfo, lv_color_hex(0x9ca3af), 0);
     lv_obj_set_width(lblInfo, W - PAD * 2);
     lv_label_set_long_mode(lblInfo, LV_LABEL_LONG_DOT);
-    lv_obj_align(lblInfo, LV_ALIGN_TOP_LEFT, PAD, btnRowY2 + rowH + 28);
+    lv_obj_align(lblInfo, LV_ALIGN_TOP_LEFT, 0, 2 * rowH + 28);
     lv_label_set_text(lblInfo, "");
 }
 
