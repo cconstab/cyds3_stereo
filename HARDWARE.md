@@ -114,6 +114,11 @@ the web config and move **one wire**: PCM5102A **DIN from GPIO 21 to GPIO 43** (
 pin on the UART connector — free because the console runs over native USB). BCK/LCK stay
 shared on GPIO 2/3.
 
+**Alternative pin:** set "Line-out DIN GPIO" to **14** (Extended IO header) if that's more
+accessible on your build — but GPIO 14 is also the amp-mute line, so this disables the
+hardware "External speakers" switch (channel-select the amps statically via SD→5V
+resistors instead, per the no-mute wiring note). Pin choice applies after a reboot.
+
 How it works: the S3's second I2S controller runs as a TX slave locked to the same
 bus clocks and carries full-scale samples to the DAC, while the amps' data line gets the
 volume-scaled stream. The line-out then has its own **"Line out" level slider** (Settings

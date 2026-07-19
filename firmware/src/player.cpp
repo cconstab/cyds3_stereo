@@ -152,7 +152,13 @@ static void scheduleFailover() {
     Serial.printf("[player] failover -> URL %d, retry in %lums\n", urlIndex + 1, (unsigned long)backoffMs);
 }
 
+// The amp-mute pin is unavailable when GPIO 14 doubles as the line-out DIN.
+static bool muteAvailable() {
+    return !(config.lineOutFixed && config.lineOutPin == PIN_EXT_AMP_SD);
+}
+
 static void applySpeakers(bool enabled) {
+    if (!muteAvailable()) return; // pin belongs to I2S1 — don't fight the matrix routing
     digitalWrite(PIN_EXT_AMP_SD, enabled ? HIGH : LOW);
 }
 
@@ -389,8 +395,12 @@ static void probeTask(void *) {
 }
 
 void playerBegin() {
-    pinMode(PIN_EXT_AMP_SD, OUTPUT);
-    applySpeakers(config.speakersEnabled);
+    if (muteAvailable()) {
+        pinMode(PIN_EXT_AMP_SD, OUTPUT);
+        applySpeakers(config.speakersEnabled);
+    } else {
+        Serial.println("[player] GPIO14 carries line-out data — hardware speaker mute disabled");
+    }
 
     pinMode(PIN_AMP_ENABLE, OUTPUT);
     digitalWrite(PIN_AMP_ENABLE, HIGH); // amp in shutdown until the codec is ready

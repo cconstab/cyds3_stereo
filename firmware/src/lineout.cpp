@@ -1,5 +1,6 @@
 #include "lineout.h"
 #include "pins.h"
+#include "app_config.h"
 #include <driver/i2s_std.h>
 #include <esp_rom_gpio.h>
 #include <soc/gpio_sig_map.h>
@@ -27,7 +28,7 @@ bool lineoutStart() {
                 .mclk = I2S_GPIO_UNUSED,
                 .bclk = I2S_GPIO_UNUSED, // routed manually below — the pins are I2S0 *outputs*
                 .ws = I2S_GPIO_UNUSED,
-                .dout = (gpio_num_t)PIN_I2S_LINE_DOUT,
+                .dout = (gpio_num_t)config.lineOutPin, // 43 (TXD0) or 14 (Extended IO)
                 .din = I2S_GPIO_UNUSED,
                 .invert_flags = {},
             },
@@ -48,7 +49,7 @@ bool lineoutStart() {
         return false;
     }
     active = true;
-    Serial.printf("[lineout] fixed line-out on GPIO%d (I2S1 slave)\n", PIN_I2S_LINE_DOUT);
+    Serial.printf("[lineout] fixed line-out on GPIO%d (I2S1 slave)\n", config.lineOutPin);
     return true;
 }
 

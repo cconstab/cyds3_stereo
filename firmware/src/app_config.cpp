@@ -37,6 +37,7 @@ String configToJson(bool includeSecrets) {
     doc["preferredResume"] = config.preferredResume;
     doc["lineOutFixed"] = config.lineOutFixed;
     doc["lineOutLevel"] = config.lineOutLevel;
+    doc["lineOutPin"] = config.lineOutPin;
     doc["brightness"] = config.brightness;
     doc["bootSelfTest"] = config.bootSelfTest;
     doc["webUiEnabled"] = config.webUiEnabled;
@@ -73,6 +74,10 @@ bool configFromJson(const String &json) {
     if (doc["preferredResume"].is<bool>()) config.preferredResume = doc["preferredResume"];
     if (doc["lineOutFixed"].is<bool>()) config.lineOutFixed = doc["lineOutFixed"];
     if (doc["lineOutLevel"].is<int>()) config.lineOutLevel = constrain(doc["lineOutLevel"].as<int>(), 0, 100);
+    if (doc["lineOutPin"].is<int>()) {
+        int p = doc["lineOutPin"];
+        config.lineOutPin = (p == 14) ? 14 : 43; // only the two header-accessible options
+    }
     if (doc["brightness"].is<int>()) config.brightness = constrain(doc["brightness"].as<int>(), 5, 100);
     if (doc["bootSelfTest"].is<bool>()) config.bootSelfTest = doc["bootSelfTest"];
     if (doc["webUiEnabled"].is<bool>()) config.webUiEnabled = doc["webUiEnabled"];
