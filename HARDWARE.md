@@ -91,14 +91,36 @@ pulldown) sets both: <0.16 V = off, 0.16–0.77 V = (L+R)/2 mix, 0.77–1.4 V = 
 - **Don't want hardware mute?** Skip GPIO 14: left amp SD → 5 V direct, right amp
   SD → 5 V via 470 kΩ. (The firmware speaker switch then has no effect.)
 
-PCM5102A: tie **SCK to GND** (internal PLL) and check the four solder bridges:
-FLT=L, DEMP=L, XSMT=H, FMT=L (usually the shipped default).
+**PCM5102A (GY-PCM5102 module): the solder pads ship OPEN — the board is silent until
+you solder them.** Verified on real hardware:
+
+- **Bottom side:** bridge the `SCK=GND` jumper pad (gives the chip its internal PLL clock;
+  floating SCK = no output at all).
+- **Top side:** bridge the four config pad pairs (`H?L` pads next to FLT/DEMP/XSMT/FMT):
+  **FLT→L, DEMP→L, XSMT→H, FMT→L**. XSMT left open = soft-mute engaged = silence even
+  with everything else correct.
 
 PCM5102A one-time setup:
 
 - Tie **SCK to GND** (solder bridge on the purple board) so it generates its own master clock.
 - Verify the four config solder bridges are at defaults (FLT=normal, DEMP=off, XSMT=un-mute,
   FMT=I2S) — boards usually ship correct.
+
+### Fixed line-out level (optional, one wire)
+
+By default all outputs share one I2S data line, so the UI volume moves the RCA level too.
+For a volume-independent line-out (studio-feed style), enable **"Fixed line-out level"** in
+the web config and move **one wire**: PCM5102A **DIN from GPIO 21 to GPIO 43** (the TXD0
+pin on the UART connector — free because the console runs over native USB). BCK/LCK stay
+shared on GPIO 2/3.
+
+How it works: the S3's second I2S controller runs as a TX slave locked to the same
+bus clocks and carries full-scale samples to the DAC, while the amps' data line gets the
+volume-scaled stream. The line-out then has its own **"Line out" level slider** (Settings
+screen and web UI, 0–100%) that sets the RCA output level independent of the UI volume —
+handy for matching the station mixer's input once, then never touching it.
+
+With the toggle off, nothing changes: the original all-shared wiring keeps working.
 
 ### Behavior notes
 

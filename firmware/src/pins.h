@@ -26,6 +26,9 @@
 #define PIN_I2S_EXT_WS 3
 #define PIN_I2S_EXT_DOUT 21
 #define PIN_EXT_AMP_SD 14 // MAX98357A SD_MODE: LOW = amps muted (line-out stays live)
+// Optional fixed-level line-out (config.lineOutFixed): PCM5102A DIN moves here,
+// fed full-scale by I2S1 slave. TXD0 pin on the UART connector (console is USB-CDC).
+#define PIN_I2S_LINE_DOUT 43
 
 // --- SD card (4-bit SDMMC) ---
 #define PIN_SD_CLK 38

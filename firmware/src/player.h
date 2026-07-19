@@ -31,6 +31,8 @@ void playerPrevUrl();
 void playerSetVolume(uint8_t vol);      // 0..21
 void playerReloadUrls();                // re-read config.streamUrls
 void playerSetSpeakers(bool enabled);   // MAX98357A SD_MODE pin
+void playerSetLineOutFixed(bool fixed); // I2S1 fixed-level line-out on/off
+void playerSetLineOutLevel(uint8_t pct); // line-out level 0..100, independent of volume
 
 // Onboard mono speaker (ES8311 codec + amp). NOT thread-safe: call from the
 // UI/web core only — its I2C bus is shared with the touch controller.

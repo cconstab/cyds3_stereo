@@ -420,8 +420,25 @@ static void buildSettings() {
         configSave(); // webuiLoop applies it on the next tick
     }, LV_EVENT_VALUE_CHANGED, nullptr);
 
+    // Line-out level slider (independent of volume when fixed line-out is wired)
+    lv_obj_t *ll = lv_label_create(scrSettings);
+    lv_label_set_text(ll, "Line out");
+    lv_obj_align(ll, LV_ALIGN_TOP_LEFT, PAD, y0 + rowH * 4 + 6);
+    lv_obj_t *sliderLine = lv_slider_create(scrSettings);
+    styleSlider(sliderLine);
+    lv_slider_set_range(sliderLine, 0, 100);
+    lv_slider_set_value(sliderLine, config.lineOutLevel, LV_ANIM_OFF);
+    lv_obj_set_size(sliderLine, W - 130 - PAD * 2, 12);
+    lv_obj_align(sliderLine, LV_ALIGN_TOP_LEFT, PAD + 120, y0 + rowH * 4 + 8);
+    lv_obj_add_event_cb(sliderLine, [](lv_event_t *e) {
+        int v = lv_slider_get_value(lv_event_get_target(e));
+        config.lineOutLevel = v;
+        playerSetLineOutLevel(v);
+        if (lv_event_get_code(e) == LV_EVENT_RELEASED) configSave();
+    }, LV_EVENT_ALL, nullptr);
+
     // Buttons row: update check + wifi portal
-    const int btnRowY = y0 + rowH * 4 + 4;
+    const int btnRowY = y0 + rowH * 5 + 4;
     const int halfW = (W - PAD * 3) / 2;
     lv_obj_t *btnUpd = lv_btn_create(scrSettings);
     styleBtn(btnUpd);

@@ -56,6 +56,8 @@ small{color:#888}label{display:block;margin-top:8px}
 <label><input type=checkbox id=speakersEnabled style="width:auto"> External speakers (line-out always on)</label>
 <label><input type=checkbox id=autoPlay style="width:auto"> Auto-play on boot</label>
 <label><input type=checkbox id=preferredResume style="width:auto"> Return to higher-priority stream when it recovers</label>
+<label><input type=checkbox id=lineOutFixed style="width:auto"> Fixed line-out level — requires PCM5102A DIN rewired to GPIO 43</label>
+<label>Line-out level % (independent of volume)<input type=number id=lineOutLevel min=0 max=100></label>
 <label><input type=checkbox id=bootSelfTest style="width:auto"> Display self-test at power-on (diagnostic)</label>
 <label>Web password (optional)<input id=webUiPassword type=password placeholder="(none)"></label>
 <label>Brightness %<input type=number id=brightness min=5 max=100></label>
@@ -86,16 +88,16 @@ function poll(){fetch('/api/status').then(r=>r.json()).then(s=>{
  if(document.activeElement.id!=='vol'){$('vol').value=s.volume;$('volv').textContent=s.volume}
 })}
 function load(){fetch('/api/config').then(r=>r.json()).then(c=>{
- for(const k of ['stationName','wifiSsid','otaBaseUrl','brightness'])$(k).value=c[k]??'';
+ for(const k of ['stationName','wifiSsid','otaBaseUrl','brightness','lineOutLevel'])$(k).value=c[k]??'';
  $('streamUrls').value=(c.streamUrls||[]).join('\n');
- for(const k of ['speakersEnabled','onboardSpeaker','autoPlay','autoUpdate','bootSelfTest','preferredResume'])$(k).checked=!!c[k];
+ for(const k of ['speakersEnabled','onboardSpeaker','autoPlay','autoUpdate','bootSelfTest','preferredResume','lineOutFixed'])$(k).checked=!!c[k];
  $('webUiPassword').placeholder=c.webUiPasswordSet?"(set — type new, or 'off' to remove)":"(none — type to set)";
 })}
 function save(){
  const body={stationName:$('stationName').value,wifiSsid:$('wifiSsid').value,
   streamUrls:$('streamUrls').value.split('\n').map(s=>s.trim()).filter(Boolean),
   speakersEnabled:$('speakersEnabled').checked,onboardSpeaker:$('onboardSpeaker').checked,autoPlay:$('autoPlay').checked,preferredResume:$('preferredResume').checked,
-  autoUpdate:$('autoUpdate').checked,bootSelfTest:$('bootSelfTest').checked,brightness:+$('brightness').value,
+  autoUpdate:$('autoUpdate').checked,bootSelfTest:$('bootSelfTest').checked,lineOutFixed:$('lineOutFixed').checked,lineOutLevel:+$('lineOutLevel').value,brightness:+$('brightness').value,
   otaBaseUrl:$('otaBaseUrl').value};
  if($('wifiPass').value)body.wifiPass=$('wifiPass').value;
  const wp=$('webUiPassword').value;
@@ -147,6 +149,8 @@ static void handleConfigPost() {
     uint8_t prevBright = config.brightness;
     bool prevSpeakers = config.speakersEnabled;
     bool prevOnboard = config.onboardSpeaker;
+    bool prevLineOut = config.lineOutFixed;
+    uint8_t prevLineLevel = config.lineOutLevel;
 
     if (!configFromJson(server.arg("plain"))) {
         server.send(400, "application/json", "{\"ok\":false}");
@@ -160,6 +164,8 @@ static void handleConfigPost() {
     if (config.speakersEnabled != prevSpeakers) playerSetSpeakers(config.speakersEnabled);
     if (config.onboardSpeaker != prevOnboard) playerSetOnboardSpeaker(config.onboardSpeaker);
     if (config.brightness != prevBright) displaySetBrightness(config.brightness);
+    if (config.lineOutFixed != prevLineOut) playerSetLineOutFixed(config.lineOutFixed);
+    if (config.lineOutLevel != prevLineLevel) playerSetLineOutLevel(config.lineOutLevel);
     if (config.wifiSsid != prevSsid || config.wifiPass != prevPass) {
         // Apply new WiFi credentials after the response goes out
         delay(500);

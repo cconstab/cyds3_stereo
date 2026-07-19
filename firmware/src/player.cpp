@@ -5,6 +5,7 @@
 #include "app_config.h"
 #include "pins.h"
 #include "es8311.h"
+#include "lineout.h"
 #include <Audio.h>
 #include <WiFi.h>
 #include <esp_rom_gpio.h>
@@ -12,7 +13,7 @@
 
 static Audio audio; // I2S port 0 -> external stereo bus (MAX98357A x2 + PCM5102A)
 
-enum CmdType : uint8_t { CMD_PLAY, CMD_STOP, CMD_NEXT, CMD_PREV, CMD_VOLUME, CMD_RELOAD, CMD_SPEAKERS, CMD_MIGRATE };
+enum CmdType : uint8_t { CMD_PLAY, CMD_STOP, CMD_NEXT, CMD_PREV, CMD_VOLUME, CMD_RELOAD, CMD_SPEAKERS, CMD_MIGRATE, CMD_LINEOUT, CMD_LINELEVEL };
 struct Cmd {
     CmdType type;
     int32_t arg;
@@ -46,16 +47,26 @@ static uint32_t icyBitrate = 0; // from the audio_bitrate callback (icy-br heade
 static uint64_t vuAccL = 0, vuAccR = 0;
 static uint32_t vuFrames = 0;
 
+// Our own volume, applied in the PCM hook (library gain is pinned at unity so the
+// hook sees full-scale samples — line-out copies them before this scaling).
+// Same square-law curve the library used: gain = (vol/steps)^2, as Q15.
+static volatile int32_t volGainQ15 = 32768;
+static volatile int32_t lineGainQ15 = 32768; // line-out level, independent of UI volume
+
+static void setVolGain(uint8_t vol) {
+    float g = vol / 21.0f;
+    volGainQ15 = (int32_t)(g * g * 32768.0f);
+}
+
+static void setLineGain(uint8_t pct) {
+    float g = pct / 100.0f;
+    lineGainQ15 = (int32_t)(g * g * 32768.0f);
+}
+
 static uint8_t rmsTakeVu(uint64_t acc) {
     if (!vuFrames) return 0;
+    // Samples are metered pre-volume (full scale) — no gain compensation needed.
     float rms = sqrtf((float)(acc / vuFrames)) / 32768.0f;
-    // The hook sees post-fader samples (library applies Gain() first); undo the
-    // volume attenuation so the meter shows source loudness. Default volume
-    // curve is square-law: gain = (vol/steps)^2.
-    float g = audio.getVolume() / 21.0f;
-    g *= g;
-    if (g < 1e-3f) return 0; // effectively muted — nothing to meter
-    rms = fminf(rms / g, 1.0f);
     if (rms < 1e-4f) return 0;
     float db = 20.0f * log10f(rms);
     float pct = (db + 42.0f) / 42.0f;
@@ -167,7 +178,7 @@ static void handleCmd(const Cmd &cmd) {
             }
             break;
         case CMD_VOLUME:
-            audio.setVolume(constrain(cmd.arg, 0, 21));
+            setVolGain(constrain(cmd.arg, 0, 21)); // applied in the PCM hook, not the library
             break;
         case CMD_RELOAD:
             xSemaphoreTake(urlsMutex, portMAX_DELAY);
@@ -179,6 +190,12 @@ static void handleCmd(const Cmd &cmd) {
             break;
         case CMD_SPEAKERS:
             applySpeakers(cmd.arg != 0);
+            break;
+        case CMD_LINEOUT:
+            if (cmd.arg) lineoutStart(); else lineoutStop();
+            break;
+        case CMD_LINELEVEL:
+            setLineGain(constrain(cmd.arg, 0, 100));
             break;
         case CMD_MIGRATE: // preferred stream recovered: deliberate switch (not a failure)
             if (wantPlaying && cmd.arg >= 0 && cmd.arg < (int)urls.size() && cmd.arg < urlIndex) {
@@ -240,8 +257,11 @@ static void audioTask(void *) {
     mirrorI2sPin(PIN_I2S_INT_WS, I2S0O_WS_OUT_IDX);
     mirrorI2sPin(PIN_I2S_INT_DOUT, I2S0O_SD_OUT_IDX);
     audio.setVolumeSteps(21);
-    audio.setVolume(config.volume);
+    audio.setVolume(21); // pinned at unity — volume is applied in the PCM hook (see audio_process_i2s)
+    setVolGain(config.volume);
+    setLineGain(config.lineOutLevel);
     audio.setConnectionTimeout(5000, 7000);
+    if (config.lineOutFixed) lineoutStart();
 
     xSemaphoreTake(urlsMutex, portMAX_DELAY);
     urls = config.streamUrls;
@@ -427,6 +447,8 @@ void playerPrevUrl() { send(CMD_PREV); }
 void playerSetVolume(uint8_t vol) { send(CMD_VOLUME, vol); }
 void playerReloadUrls() { send(CMD_RELOAD); }
 void playerSetSpeakers(bool enabled) { send(CMD_SPEAKERS, enabled ? 1 : 0); }
+void playerSetLineOutFixed(bool fixed) { send(CMD_LINEOUT, fixed ? 1 : 0); }
+void playerSetLineOutLevel(uint8_t pct) { send(CMD_LINELEVEL, pct); }
 
 // ---- ESP32-audioI2S weak callbacks (called from the audio task) ----
 void audio_showstation(const char *info) {
@@ -442,13 +464,37 @@ void audio_showstreamtitle(const char *info) {
 }
 
 // Called by the library with each decoded PCM block before it goes to I2S.
+// Order matters: (1) full-scale copy to the fixed line-out, (2) meter the
+// full-scale signal, (3) apply the volume in place for the amps/onboard codec.
 void audio_process_i2s(int16_t *buff, uint16_t validSamples, uint8_t bitsPerSample, uint8_t channels, bool *continueI2S) {
     *continueI2S = true;
     if (bitsPerSample != 16 || channels != 2) return;
+
+    if (lineoutActive()) {
+        int32_t lg = lineGainQ15;
+        if (lg >= 32768) {
+            lineoutWrite(buff, validSamples); // full level: no copy needed
+        } else {
+            static int16_t tmp[512]; // audio task only; chunked to keep it off the heap
+            uint16_t done = 0;
+            while (done < validSamples) {
+                uint16_t n = min<uint16_t>(256, validSamples - done);
+                for (uint16_t i = 0; i < n * 2; i++) {
+                    tmp[i] = (int16_t)(((int32_t)buff[done * 2 + i] * lg) >> 15);
+                }
+                lineoutWrite(tmp, n);
+                done += n;
+            }
+        }
+    }
+
+    int32_t g = volGainQ15;
     for (uint16_t i = 0; i < validSamples; i++) {
         int32_t l = buff[2 * i], r = buff[2 * i + 1];
         vuAccL += (uint64_t)((int64_t)l * l);
         vuAccR += (uint64_t)((int64_t)r * r);
+        buff[2 * i] = (int16_t)((l * g) >> 15);
+        buff[2 * i + 1] = (int16_t)((r * g) >> 15);
     }
     vuFrames += validSamples;
 }
