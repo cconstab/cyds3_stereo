@@ -105,8 +105,8 @@ static void buildMain() {
     const int barW = W - PAD * 2 - 24;
     const int btnW = big ? 72 : 60;
     const int btnH = big ? 52 : 42;
-    const int volBottom = big ? -22 : -14;
-    const int btnBottom = volBottom - (big ? 36 : 28);
+    const int volBottom = big ? -20 : -12;
+    const int btnBottom = volBottom - (big ? 28 : 20); // sits lower: breathing room for the config-URL line
 
     scrMain = lv_obj_create(nullptr);
     lv_obj_set_style_bg_color(scrMain, lv_color_hex(0x0b0f14), 0);
