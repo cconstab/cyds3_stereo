@@ -177,6 +177,7 @@ public:
     uint32_t getTotalPlayingTime();
     uint16_t getVUlevel();
 
+    void setPrebuffer(uint32_t bytes) { m_prebuffBytes = bytes; } // [cyds3] webstream start threshold
     uint32_t inBufferFilled(); // returns the number of stored bytes in the inputbuffer
     uint32_t inBufferFree();   // returns the number of free bytes in the inputbuffer
     uint32_t inBufferSize();   // returns the size of the inputbuffer in bytes
@@ -674,6 +675,7 @@ private:
     uint8_t         m_filterType[2];                // lowpass, highpass
     uint8_t         m_streamType = ST_NONE;
     uint8_t         m_ID3Size = 0;                  // lengt of ID3frame - ID3header
+    uint32_t        m_prebuffBytes = 65536;         // [cyds3] webstream pre-buffer before playback starts
     uint8_t         m_vuLeft = 0;                   // average value of samples, left channel
     uint8_t         m_vuRight = 0;                  // average value of samples, right channel
     uint8_t         m_audioTaskCoreId = 0;

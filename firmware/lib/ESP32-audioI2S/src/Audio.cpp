@@ -3196,14 +3196,17 @@ void Audio::processWebStream() {
     }
 
     // start audio decoding - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    if(InBuff.bufferFilled() > maxFrameSize && !m_f_stream) { // waiting for buffer filled
+    // [cyds3] pre-buffer: one frame of head-start guarantees start-of-stream stutter on live
+    // radio. Wait for m_prebuffBytes (capped so tiny servers/buffers can't stall forever).
+    uint32_t startThreshold = max((uint32_t)maxFrameSize, min(m_prebuffBytes, (uint32_t)(InBuff.getBufsize() / 4)));
+    if(InBuff.bufferFilled() > startThreshold && !m_f_stream) { // waiting for buffer filled
         if(m_codec == CODEC_OGG) { // log_i("determine correct codec here");
             uint8_t codec = determineOggCodec(InBuff.getReadPtr(), maxFrameSize);
             if(codec == CODEC_FLAC) {initializeDecoder(codec); m_codec = codec;}
             if(codec == CODEC_OPUS) {initializeDecoder(codec); m_codec = codec;}
             if(codec == CODEC_VORBIS) {initializeDecoder(codec); m_codec = codec;}
         }
-        AUDIO_INFO("stream ready");
+        AUDIO_INFO("stream ready, prebuffered %lu bytes", (unsigned long)InBuff.bufferFilled());
         m_f_stream = true;  // ready to play the audio data
     }
 }

@@ -272,6 +272,7 @@ static void audioTask(void *) {
     setVolGain(config.volume);
     setLineGain(config.lineOutLevel);
     audio.setConnectionTimeout(5000, 7000);
+    audio.setPrebuffer(65536); // ~4s @128kbps before playback starts — no start-of-stream stutter
     if (config.lineOutFixed) lineoutStart();
 
     xSemaphoreTake(urlsMutex, portMAX_DELAY);
