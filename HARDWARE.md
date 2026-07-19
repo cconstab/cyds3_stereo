@@ -115,9 +115,15 @@ pin on the UART connector — free because the console runs over native USB). BC
 shared on GPIO 2/3.
 
 **Alternative pin:** set "Line-out DIN GPIO" to **14** (Extended IO header) if that's more
-accessible on your build — but GPIO 14 is also the amp-mute line, so this disables the
-hardware "External speakers" switch (channel-select the amps statically via SD→5V
-resistors instead, per the no-mute wiring note). Pin choice applies after a reboot.
+accessible on your build. GPIO 14 was the hardware amp-mute line, but with fixed line-out
+active **no mute pin is needed at all**: the "External speakers" switch mutes the amps by
+zeroing their I2S0 data stream in firmware, while the line-out (I2S1) keeps playing.
+Channel-select the amps statically instead: left SD → 5 V direct, right SD → 5 V via
+470 kΩ. Pin choice applies after a reboot. Note the onboard speaker rides the same I2S0
+stream, so the external-speakers mute silences it too.
+
+**Do not use GPIO 15/16 for audio** — despite having a connector, that's the live I2C bus
+(touch controller + ES8311 codec, with pull-ups). I2S data there kills the touchscreen.
 
 How it works: the S3's second I2S controller runs as a TX slave locked to the same
 bus clocks and carries full-scale samples to the DAC, while the amps' data line gets the

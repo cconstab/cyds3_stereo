@@ -157,9 +157,14 @@ static bool muteAvailable() {
     return !(config.lineOutFixed && config.lineOutPin == PIN_EXT_AMP_SD);
 }
 
+// Firmware-level amp mute: zeroes the I2S0 stream in the PCM hook. With fixed
+// line-out on I2S1 this silences the amps (and onboard codec) without touching
+// the RCA feed — no dedicated mute GPIO required.
+static volatile bool extMute = false;
+
 static void applySpeakers(bool enabled) {
-    if (!muteAvailable()) return; // pin belongs to I2S1 — don't fight the matrix routing
-    digitalWrite(PIN_EXT_AMP_SD, enabled ? HIGH : LOW);
+    extMute = !enabled;
+    if (muteAvailable()) digitalWrite(PIN_EXT_AMP_SD, enabled ? HIGH : LOW);
 }
 
 static void handleCmd(const Cmd &cmd) {
@@ -397,10 +402,10 @@ static void probeTask(void *) {
 void playerBegin() {
     if (muteAvailable()) {
         pinMode(PIN_EXT_AMP_SD, OUTPUT);
-        applySpeakers(config.speakersEnabled);
     } else {
-        Serial.println("[player] GPIO14 carries line-out data — hardware speaker mute disabled");
+        Serial.println("[player] GPIO14 carries line-out data — amp mute is data-level only");
     }
+    applySpeakers(config.speakersEnabled);
 
     pinMode(PIN_AMP_ENABLE, OUTPUT);
     digitalWrite(PIN_AMP_ENABLE, HIGH); // amp in shutdown until the codec is ready
@@ -498,7 +503,7 @@ void audio_process_i2s(int16_t *buff, uint16_t validSamples, uint8_t bitsPerSamp
         }
     }
 
-    int32_t g = volGainQ15;
+    int32_t g = extMute ? 0 : volGainQ15;
     for (uint16_t i = 0; i < validSamples; i++) {
         int32_t l = buff[2 * i], r = buff[2 * i + 1];
         vuAccL += (uint64_t)((int64_t)l * l);
