@@ -46,7 +46,7 @@ small{color:#888}label{display:block;margin-top:8px}
 <label>Volume <span id=volv></span><input type=range min=0 max=21 id=vol onchange="act('volume&value='+this.value)"></label>
 
 <h2>Station &amp; playback</h2>
-<label>Station display name (used when the stream sends none)<input id=stationName></label>
+<label>Station display name (leave blank to show the stream's own name)<input id=stationName></label>
 <label>Stream URLs — one per line, best quality first (the failover order)<textarea id=streamUrls rows=5 placeholder="http://stream.example.com/256k.aac"></textarea></label>
 <label><input type=checkbox id=autoPlay style="width:auto"> Auto-play on boot</label>
 <label><input type=checkbox id=preferredResume style="width:auto"> Migrate back to a higher-priority stream once it recovers</label>
@@ -86,7 +86,7 @@ small{color:#888}label{display:block;margin-top:8px}
 const $=id=>document.getElementById(id);
 function act(a){fetch('/api/action?do='+a).then(()=>setTimeout(poll,300))}
 function poll(){fetch('/api/status').then(r=>r.json()).then(s=>{
- $('station').textContent=s.station||s.stationName||'—';
+ $('station').textContent=s.stationName||s.station||'—';
  $('title').textContent=s.title||'—';
  $('urlinfo').textContent=s.urlCount?('URL '+(s.urlIndex+1)+'/'+s.urlCount+(s.currentUrl?' — '+s.currentUrl.replace(/^https?:\/\//,''):'')):'';
  $('vul').style.width=(s.vuLeft/127*100)+'%';$('vur').style.width=(s.vuRight/127*100)+'%';

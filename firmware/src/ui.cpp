@@ -551,7 +551,9 @@ void uiUpdate() {
 
     lv_bar_set_value(barBuffer, ps.bufferPct, LV_ANIM_OFF);
 
-    lv_label_set_text(lblStation, ps.station[0] ? ps.station : config.stationName.c_str());
+    // Configured name wins; the stream's icy-name only fills in when it's left blank.
+    if (config.stationName.length()) lv_label_set_text(lblStation, config.stationName.c_str());
+    else lv_label_set_text(lblStation, ps.station[0] ? ps.station : "CYD-S3 Stereo");
     lv_label_set_text(lblTitle, ps.title[0] ? ps.title : "-");
 
     if (ps.wantPlaying != lastPlaying) {
