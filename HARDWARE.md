@@ -75,6 +75,16 @@ signals come off the external connectors via the included 4P cables.
 | GPIO 21 | DIN (volume-controlled stream) | — |
 | GPIO 43 (TXD0, UART conn.) | — | DIN (fixed-level I2S1 stream; alt: GPIO 14) |
 | GPIO 14 (free) | optional hardware mute (SD network) or future use (e.g. IR receiver) | — |
+
+**Finding GPIO 43/44:** the board's UART connector silkscreen says **TXD0** and **RXD0** —
+that's GPIO 43 and GPIO 44. Both are ordinary, free GPIOs in this project because the
+serial console runs over the native USB port, not UART0 (flashing and `pio device monitor`
+are unaffected). That makes the full spare-pin inventory: **GPIO 14, 43 (TXD0), 44 (RXD0)**.
+Practical note for GPIO 44: at reset the ROM bootloader briefly listens on it, so prefer it
+for inputs (buttons, sensors, IR) or signals that are quiet during boot; GPIO 43 conversely
+*transmits* boot-ROM log bytes for ~1s at reset — harmless for I2S DIN (no bit clock runs
+during boot, so the DAC ignores it) but worth knowing before hanging anything edge-sensitive
+on it.
 | 5 V | Vin · SD channel select: LEFT amp **direct**, RIGHT amp **via 470 kΩ** | VIN |
 | GND | GND | GND |
 
