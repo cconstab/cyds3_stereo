@@ -67,4 +67,19 @@ void lineoutWrite(const int16_t *samples, size_t frames) {
     size_t written = 0;
     // timeout 0: never stall the audio task — a full DMA queue just drops a chunk
     i2s_channel_write(tx, samples, frames * 2 * sizeof(int16_t), &written, 0);
+
+    // Flow diagnostics: if "accepted" stalls near zero while "offered" grows, the DMA
+    // isn't draining — i.e. I2S1 isn't receiving bus clocks. If they track, data is
+    // being clocked out and any remaining silence is downstream (wiring/DAC).
+    static uint64_t offered = 0, accepted = 0;
+    static uint32_t lastLogMs = 0;
+    offered += frames * 2 * sizeof(int16_t);
+    accepted += written;
+    uint32_t now = millis();
+    if (now - lastLogMs >= 5000) {
+        lastLogMs = now;
+        Serial.printf("[lineout] offered %llu KB, accepted %llu KB (%s)\n",
+                      offered / 1024, accepted / 1024,
+                      accepted * 100 >= offered * 90 ? "flowing" : "DMA NOT DRAINING - no bus clocks?");
+    }
 }
