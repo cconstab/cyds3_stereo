@@ -6,6 +6,7 @@
 #include "net.h"
 #include "ota.h"
 #include "display_lvgl.h"
+#include "lineout.h"
 #include <WebServer.h>
 #include <WiFi.h>
 #include <ArduinoJson.h>
@@ -84,7 +85,7 @@ function poll(){fetch('/api/status').then(r=>r.json()).then(s=>{
  $('vul').style.width=(s.vuLeft/127*100)+'%';$('vur').style.width=(s.vuRight/127*100)+'%';
  $('stat').innerHTML=(s.playing?'<span class=ok>playing</span>':'<span class=bad>stopped</span>')
   +' · '+(s.bitrate?Math.round(s.bitrate/1000)+' kbps':'')+' · buffer '+s.bufferPct+'% · wifi '+s.rssi+' dBm · reconnects '+s.reconnects
-  +(s.probe?' · '+s.probe:'');
+  +(s.probe?' · '+s.probe:'')+' · lineout '+(s.lineout||'?');
  $('fw').textContent=s.fw;$('otamsg').textContent=s.otaMessage||'';
  if(document.activeElement.id!=='vol'){$('vol').value=s.volume;$('volv').textContent=s.volume}
 })}
@@ -129,6 +130,12 @@ static void handleStatus() {
     doc["reconnects"] = ps.reconnects;
     doc["lastError"] = ps.lastError;
     doc["probe"] = ps.probeMsg;
+    {
+        char lo[24];
+        if (lineoutActive()) snprintf(lo, sizeof(lo), "on GPIO%d", config.lineOutPin);
+        else strlcpy(lo, config.lineOutFixed ? "FAILED to start" : "off", sizeof(lo));
+        doc["lineout"] = lo;
+    }
     doc["volume"] = config.volume;
     doc["rssi"] = netRssi();
     doc["ip"] = netIp();
