@@ -420,16 +420,30 @@ static void buildSettings() {
         configSave(); // webuiLoop applies it on the next tick
     }, LV_EVENT_VALUE_CHANGED, nullptr);
 
+    // Fixed line-out toggle (I2S1; DIN pin per config.lineOutPin)
+    lv_obj_t *lf = lv_label_create(scrSettings);
+    lv_label_set_text(lf, "Fixed line-out");
+    lv_obj_align(lf, LV_ALIGN_TOP_LEFT, PAD, y0 + rowH * 4 + 6);
+    lv_obj_t *swLineFixed = lv_switch_create(scrSettings);
+    lv_obj_align(swLineFixed, LV_ALIGN_TOP_RIGHT, -PAD, y0 + rowH * 4);
+    if (config.lineOutFixed) lv_obj_add_state(swLineFixed, LV_STATE_CHECKED);
+    lv_obj_add_event_cb(swLineFixed, [](lv_event_t *e) {
+        bool on = lv_obj_has_state(lv_event_get_target(e), LV_STATE_CHECKED);
+        config.lineOutFixed = on;
+        playerSetLineOutFixed(on);
+        configSave();
+    }, LV_EVENT_VALUE_CHANGED, nullptr);
+
     // Line-out level slider (independent of volume when fixed line-out is wired)
     lv_obj_t *ll = lv_label_create(scrSettings);
     lv_label_set_text(ll, "Line out");
-    lv_obj_align(ll, LV_ALIGN_TOP_LEFT, PAD, y0 + rowH * 4 + 6);
+    lv_obj_align(ll, LV_ALIGN_TOP_LEFT, PAD, y0 + rowH * 5 + 6);
     lv_obj_t *sliderLine = lv_slider_create(scrSettings);
     styleSlider(sliderLine);
     lv_slider_set_range(sliderLine, 0, 100);
     lv_slider_set_value(sliderLine, config.lineOutLevel, LV_ANIM_OFF);
     lv_obj_set_size(sliderLine, W - 130 - PAD * 2, 12);
-    lv_obj_align(sliderLine, LV_ALIGN_TOP_LEFT, PAD + 120, y0 + rowH * 4 + 8);
+    lv_obj_align(sliderLine, LV_ALIGN_TOP_LEFT, PAD + 120, y0 + rowH * 5 + 8);
     lv_obj_add_event_cb(sliderLine, [](lv_event_t *e) {
         int v = lv_slider_get_value(lv_event_get_target(e));
         config.lineOutLevel = v;
@@ -438,7 +452,7 @@ static void buildSettings() {
     }, LV_EVENT_ALL, nullptr);
 
     // Buttons row: update check + wifi portal
-    const int btnRowY = y0 + rowH * 5 + 4;
+    const int btnRowY = y0 + rowH * 6 + 4;
     const int halfW = (W - PAD * 3) / 2;
     lv_obj_t *btnUpd = lv_btn_create(scrSettings);
     styleBtn(btnUpd);
