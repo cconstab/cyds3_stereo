@@ -32,6 +32,7 @@ static lv_obj_t *sliderVol;
 // ---- Settings screen ----
 static lv_obj_t *scrSettings;
 static lv_obj_t *lblInfo;
+static lv_obj_t *lblNetInfo;
 static lv_obj_t *swSpeakers;
 static lv_obj_t *sliderBright;
 static lv_obj_t *lblOta;
@@ -472,6 +473,13 @@ static void buildSettings() {
         openEditor(ET_URLS, "Stream URLs (one per line)", all.c_str(), false);
     });
 
+    lblNetInfo = lv_label_create(tabNet);
+    lv_obj_set_style_text_font(lblNetInfo, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_color(lblNetInfo, lv_color_hex(0x9ca3af), 0);
+    lv_obj_set_width(lblNetInfo, W - PAD * 2);
+    lv_obj_align(lblNetInfo, LV_ALIGN_TOP_LEFT, 0, 2 * rowH + 8);
+    lv_label_set_text(lblNetInfo, "");
+
     // ---- System tab ----
     sliderBright = addSlider(tabSys, 0, "Brightness", 5, 100, config.brightness, [](lv_event_t *e) {
         int v = lv_slider_get_value(lv_event_get_target(e));
@@ -606,6 +614,25 @@ void uiUpdate() {
     snprintf(infoTxt, sizeof(infoTxt), "fw %s  •  http://%s  •  reconnects %lu",
              FW_VERSION, netIp().c_str(), (unsigned long)ps.reconnects);
     lv_label_set_text(lblInfo, infoTxt);
+
+    // Network tab: live connection summary
+    char netTxt[160];
+    switch (netMode()) {
+        case NetMode::PORTAL:
+            snprintf(netTxt, sizeof(netTxt), "Hotspot: %s\nIP: %s (setup portal)", netApName(), netIp().c_str());
+            break;
+        case NetMode::CONNECTING:
+            snprintf(netTxt, sizeof(netTxt), "Connecting to %s...", config.wifiSsid.c_str());
+            break;
+        case NetMode::ONLINE:
+            snprintf(netTxt, sizeof(netTxt), "WiFi: %s  \xe2\x80\xa2  %d dBm\nIP: %s  \xe2\x80\xa2  host: %s",
+                     config.wifiSsid.c_str(), netRssi(), netIp().c_str(), config.hostname.c_str());
+            break;
+        default:
+            snprintf(netTxt, sizeof(netTxt), "WiFi: %s  \xe2\x80\xa2  disconnected, retrying...", config.wifiSsid.c_str());
+            break;
+    }
+    lv_label_set_text(lblNetInfo, netTxt);
 
     // WiFi setup screen: deliver async scan results, refresh the info line
     if (scanning) {
