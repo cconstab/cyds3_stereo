@@ -72,10 +72,10 @@ signals come off the external connectors via the included 4P cables.
 |---|---|---|
 | GPIO 2 | BCLK | BCK |
 | GPIO 3 | LRC | LCK |
-| GPIO 21 | DIN | DIN |
-| 5 V | Vin | VIN |
+| GPIO 21 | DIN (volume-controlled stream) | — |
+| GPIO 14 | — | DIN (fixed-level I2S1 stream) |
+| 5 V | Vin · SD channel select: LEFT amp **direct**, RIGHT amp **via 470 kΩ** | VIN |
 | GND | GND | GND |
-| GPIO 14 | SD: **direct** to LEFT amp, **via 220 kΩ** to RIGHT amp | — |
 
 **SD pin: mute and channel select on one pin.** The MAX98357A's SD input (internal 100 kΩ
 pulldown) sets both: <0.16 V = off, 0.16–0.77 V = (L+R)/2 mix, 0.77–1.4 V = right channel,
