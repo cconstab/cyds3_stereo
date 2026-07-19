@@ -17,7 +17,7 @@ static const char PAGE[] PROGMEM = R"HTML(<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CYD-S3 Stereo</title><style>
 body{font-family:system-ui,sans-serif;background:#111;color:#eee;max-width:640px;margin:0 auto;padding:16px}
-h1{font-size:1.3em}h2{font-size:1.05em;margin-top:1.4em;border-bottom:1px solid #333;padding-bottom:4px}
+h1{font-size:1.3em}h2{font-size:1.05em;margin-top:1.6em;border-bottom:1px solid #333;padding-bottom:4px}
 input,textarea,button,select{width:100%;box-sizing:border-box;background:#222;color:#eee;border:1px solid #444;border-radius:6px;padding:8px;margin:4px 0;font-size:1em}
 button{background:#2563eb;border:0;cursor:pointer;font-weight:600}button.alt{background:#374151}
 .row{display:flex;gap:8px}.row>*{flex:1}
@@ -25,9 +25,10 @@ button{background:#2563eb;border:0;cursor:pointer;font-weight:600}button.alt{bac
 .vu{height:10px;background:#222;border-radius:5px;overflow:hidden;margin:4px 0}
 .vu>div{height:100%;width:0;background:linear-gradient(90deg,#22c55e,#eab308,#ef4444);transition:width .1s}
 small{color:#888}label{display:block;margin-top:8px}
-.ok{color:#22c55e}.bad{color:#ef4444}
+.ok{color:#22c55e}.bad{color:#ef4444}.err{color:#f87171}
 </style></head><body>
 <h1>CYD-S3 Stereo</h1>
+
 <div id=np>
  <div><b id=station>—</b> <small id=urlinfo></small></div>
  <div id=title style="min-height:1.3em">—</div>
@@ -44,33 +45,43 @@ small{color:#888}label{display:block;margin-top:8px}
 </div>
 <label>Volume <span id=volv></span><input type=range min=0 max=21 id=vol onchange="act('volume&value='+this.value)"></label>
 
-<h2>Station</h2>
-<label>Name<input id=stationName></label>
-<label>Stream URLs (one per line, priority order)<textarea id=streamUrls rows=5 placeholder="http://stream1.example.com/live.mp3"></textarea></label>
+<h2>Station &amp; playback</h2>
+<label>Station display name (used when the stream sends none)<input id=stationName></label>
+<label>Stream URLs — one per line, best quality first (the failover order)<textarea id=streamUrls rows=5 placeholder="http://stream.example.com/256k.aac"></textarea></label>
+<label><input type=checkbox id=autoPlay style="width:auto"> Auto-play on boot</label>
+<label><input type=checkbox id=preferredResume style="width:auto"> Migrate back to a higher-priority stream once it recovers</label>
+
+<h2>Audio outputs</h2>
+<label><input type=checkbox id=onboardSpeaker style="width:auto"> Onboard speaker (mono)</label>
+<label><input type=checkbox id=speakersEnabled style="width:auto"> External speaker amps (mute leaves line-out playing)</label>
+<label><input type=checkbox id=lineOutFixed style="width:auto"> Fixed line-out level — RCA level independent of volume (needs the one-wire DIN mod, see HARDWARE.md)</label>
+<label>Line-out level % <input type=number id=lineOutLevel min=0 max=100></label>
+<label>Line-out DIN pin (reboot to apply)
+<select id=lineOutPin>
+ <option value=43>GPIO 43 — TXD0 pin on UART connector</option>
+ <option value=14>GPIO 14 — Extended IO header</option>
+</select></label>
+
+<h2>Display</h2>
+<label>Brightness % <input type=number id=brightness min=5 max=100></label>
+<label><input type=checkbox id=bootSelfTest style="width:auto"> Color-cycle self-test at power-on (display diagnostic)</label>
 
 <h2>WiFi</h2>
 <label>SSID<input id=wifiSsid></label>
-<label>Password<input id=wifiPass type=password placeholder="(unchanged)"></label>
+<label>Password<input id=wifiPass type=password placeholder="(unchanged)" autocomplete=off></label>
+<small>Saving new WiFi credentials reboots the player.</small>
 
-<h2>Options</h2>
-<label><input type=checkbox id=onboardSpeaker style="width:auto"> Onboard speaker</label>
-<label><input type=checkbox id=speakersEnabled style="width:auto"> External speakers (line-out always on)</label>
-<label><input type=checkbox id=autoPlay style="width:auto"> Auto-play on boot</label>
-<label><input type=checkbox id=preferredResume style="width:auto"> Return to higher-priority stream when it recovers</label>
-<label><input type=checkbox id=lineOutFixed style="width:auto"> Fixed line-out level — requires PCM5102A DIN rewired to GPIO 43</label>
-<label>Line-out level % (independent of volume)<input type=number id=lineOutLevel min=0 max=100></label>
-<label>Line-out DIN GPIO — 43 (TXD0 pin) or 14 (Extended IO header; disables speaker-mute pin). Reboot to apply.<input type=number id=lineOutPin min=14 max=43></label>
-<label><input type=checkbox id=bootSelfTest style="width:auto"> Display self-test at power-on (diagnostic)</label>
-<label>Web password (optional)<input id=webUiPassword type=password placeholder="(none)"></label>
-<label>Brightness %<input type=number id=brightness min=5 max=100></label>
+<h2>Web access</h2>
+<label>Web password (optional; user "admin")<input id=webUiPassword type=password placeholder="(none)" autocomplete=off></label>
+<small>The web interface on/off switch is on the device (Settings &gt; Network) so it can't be disabled remotely.</small>
 
 <h2>Firmware</h2>
 <div><small>Installed: <b id=fw></b> &middot; <span id=otamsg></span></small></div>
 <label>Update server URL<input id=otaBaseUrl placeholder="http://192.168.1.50:8080"></label>
-<label><input type=checkbox id=autoUpdate style="width:auto"> Auto-update</label>
+<label><input type=checkbox id=autoUpdate style="width:auto"> Install updates automatically (hourly check)</label>
 <div class=row>
  <button class=alt onclick="act('checkupdate')">Check for update now</button>
- <button class=alt onclick="if(confirm('Reboot?'))act('reboot')">Reboot</button>
+ <button class=alt onclick="if(confirm('Reboot the player?'))act('reboot')">Reboot</button>
 </div>
 
 <br><button onclick="save()">Save configuration</button>
@@ -83,9 +94,13 @@ function poll(){fetch('/api/status').then(r=>r.json()).then(s=>{
  $('title').textContent=s.title||'—';
  $('urlinfo').textContent=s.urlCount?('URL '+(s.urlIndex+1)+'/'+s.urlCount+(s.currentUrl?' — '+s.currentUrl.replace(/^https?:\/\//,''):'')):'';
  $('vul').style.width=(s.vuLeft/127*100)+'%';$('vur').style.width=(s.vuRight/127*100)+'%';
- $('stat').innerHTML=(s.playing?'<span class=ok>playing</span>':'<span class=bad>stopped</span>')
-  +' · '+(s.bitrate?Math.round(s.bitrate/1000)+' kbps':'')+' · buffer '+s.bufferPct+'% · wifi '+s.rssi+' dBm · reconnects '+s.reconnects
-  +(s.probe?' · '+s.probe:'')+' · lineout '+(s.lineout||'?');
+ const bits=[s.playing?'<span class=ok>playing</span>':'<span class=bad>stopped</span>'];
+ if(s.bitrate)bits.push(Math.round(s.bitrate/1000)+' kbps');
+ bits.push('buffer '+s.bufferPct+'%','wifi '+s.rssi+' dBm','reconnects '+s.reconnects);
+ if(s.lineout&&s.lineout!=='off')bits.push('lineout '+s.lineout);
+ if(s.probe)bits.push(s.probe);
+ if(!s.playing&&s.lastError)bits.push('<span class=err>'+s.lastError+'</span>');
+ $('stat').innerHTML=bits.join(' &middot; ');
  $('fw').textContent=s.fw;$('otamsg').textContent=s.otaMessage||'';
  if(document.activeElement.id!=='vol'){$('vol').value=s.volume;$('volv').textContent=s.volume}
 })}
