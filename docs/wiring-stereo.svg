@@ -16,7 +16,7 @@
     <circle cx="300" cy="190" r="5" fill="#16a34a"/><text x="290" y="194" text-anchor="end" fill="#16a34a">GPIO 2  (BCLK)</text>
     <circle cx="300" cy="230" r="5" fill="#2563eb"/><text x="290" y="234" text-anchor="end" fill="#2563eb">GPIO 3  (LRC)</text>
     <circle cx="300" cy="270" r="5" fill="#ea580c"/><text x="290" y="274" text-anchor="end" fill="#ea580c">GPIO 21 (amp DIN)</text>
-    <circle cx="300" cy="310" r="5" fill="#9333ea"/><text x="290" y="314" text-anchor="end" fill="#9333ea">GPIO 14 (line DIN)</text>
+    <circle cx="300" cy="310" r="5" fill="#9333ea"/><text x="290" y="314" text-anchor="end" fill="#9333ea">GPIO 43 / TXD0 (line DIN)</text>
     <circle cx="300" cy="390" r="5" fill="#dc2626"/><text x="290" y="394" text-anchor="end" fill="#dc2626">5V</text>
     <circle cx="300" cy="430" r="5" fill="#374151"/><text x="290" y="434" text-anchor="end" fill="#374151">GND</text>
   </g>
@@ -159,9 +159,9 @@
   <g font-size="12" fill="#78350f">
     <text x="56" y="772">Amp SD thresholds: &lt;0.16V off · 0.16–0.77V (L+R)/2 · 0.77–1.4V RIGHT · &gt;1.4V LEFT</text>
     <text x="56" y="794">"External speakers" switch zeroes the amps' data (GPIO 21 stream) — the line-out</text>
-    <text x="56" y="810">(GPIO 14, I2S1) keeps playing at its own level. Onboard speaker follows the amp stream.</text>
-    <text x="56" y="832">Enable "Fixed line-out" in settings; the Line-out slider sets the RCA level independent</text>
-    <text x="56" y="848">of volume. Alt DIN pin: GPIO 43 (TXD0). Adafruit amps: remove their 1MΩ SD→Vin resistor.</text>
+    <text x="56" y="810">(GPIO 43, I2S1) keeps playing at its own level. Onboard speaker follows the amp stream.</text>
+    <text x="56" y="832">Enable "Fixed line-out" in settings; the Line-out slider sets the RCA level independent of</text>
+    <text x="56" y="848">volume. Alt DIN pin: GPIO 14. Free GPIO 14 can drive the amps' SD as a hardware mute.</text>
     <text x="56" y="868" font-size="11" fill="#b91c1c" font-weight="bold">Never put audio on GPIO 15/16 — that's the live I2C bus (touch + codec).</text>
   </g>
 

@@ -73,7 +73,8 @@ signals come off the external connectors via the included 4P cables.
 | GPIO 2 | BCLK | BCK |
 | GPIO 3 | LRC | LCK |
 | GPIO 21 | DIN (volume-controlled stream) | — |
-| GPIO 14 | — | DIN (fixed-level I2S1 stream) |
+| GPIO 43 (TXD0, UART conn.) | — | DIN (fixed-level I2S1 stream; alt: GPIO 14) |
+| GPIO 14 (free) | optional hardware mute (SD network) or future use (e.g. IR receiver) | — |
 | 5 V | Vin · SD channel select: LEFT amp **direct**, RIGHT amp **via 470 kΩ** | VIN |
 | GND | GND | GND |
 
