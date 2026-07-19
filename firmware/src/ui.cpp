@@ -22,6 +22,7 @@ static lv_obj_t *lblStation;
 static lv_obj_t *lblTitle;
 static lv_obj_t *lblWifi;
 static lv_obj_t *lblStatus;
+static lv_obj_t *lblCfgUrl;
 static const int VU_SEGS = 24;
 static lv_obj_t *vuSegL[VU_SEGS], *vuSegR[VU_SEGS];
 static lv_obj_t *barBuffer;
@@ -156,6 +157,15 @@ static void buildMain() {
     lv_label_set_long_mode(lblStatus, LV_LABEL_LONG_DOT);
     lv_obj_align(lblStatus, LV_ALIGN_TOP_LEFT, PAD, vuY + vuGap * 2 + 12);
     lv_label_set_text(lblStatus, "starting...");
+
+    // Web-config URL (shown while the web interface is enabled and online)
+    lblCfgUrl = lv_label_create(scrMain);
+    lv_obj_set_style_text_font(lblCfgUrl, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_color(lblCfgUrl, lv_color_hex(0x6b7f95), 0);
+    lv_obj_set_width(lblCfgUrl, W - PAD * 2);
+    lv_label_set_long_mode(lblCfgUrl, LV_LABEL_LONG_DOT);
+    lv_obj_align(lblCfgUrl, LV_ALIGN_TOP_LEFT, PAD, vuY + vuGap * 2 + (big ? 30 : 28));
+    lv_label_set_text(lblCfgUrl, "");
 
     // Controls row
     auto mkBtn = [&](const char *txt, int x, lv_event_cb_t cb) {
@@ -561,10 +571,7 @@ void uiUpdate() {
     if (netMode() == NetMode::PORTAL) {
         snprintf(statusTxt, sizeof(statusTxt), "Setup: join WiFi '%s', open http://%s", netApName(), netIp().c_str());
     } else if (!ps.wantPlaying) {
-        if (config.webUiEnabled)
-            snprintf(statusTxt, sizeof(statusTxt), "Stopped  •  config at http://%s", netIp().c_str());
-        else
-            snprintf(statusTxt, sizeof(statusTxt), "Stopped  •  web interface off");
+        snprintf(statusTxt, sizeof(statusTxt), "Stopped%s", config.webUiEnabled ? "" : "  •  web interface off");
     } else {
         // "2/3 stream.example.com/live · 128 kbps", scheme stripped to save width
         const char *u = ps.currentUrl;
@@ -577,6 +584,14 @@ void uiUpdate() {
                  ps.playing ? "" : "  •  reconnecting...");
     }
     lv_label_set_text(lblStatus, statusTxt);
+
+    if (netMode() == NetMode::ONLINE && config.webUiEnabled) {
+        char cfgTxt[64];
+        snprintf(cfgTxt, sizeof(cfgTxt), "config: http://%s", netIp().c_str());
+        lv_label_set_text(lblCfgUrl, cfgTxt);
+    } else {
+        lv_label_set_text(lblCfgUrl, "");
+    }
 
     // Settings screen extras
     OtaState os;
