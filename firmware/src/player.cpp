@@ -37,6 +37,7 @@ static uint32_t connectStartedMs = 0;
 static bool connecting = false;
 
 static uint32_t icyBitrate = 0; // from the audio_bitrate callback (icy-br header)
+static uint32_t titleSetMs = 0; // audio task only (metadata callback + publishStatus share the task)
 
 // RMS VU metering in dB. The library's own getVUlevel() is peak-biased, and
 // internet radio is compressed with peaks pinned near full scale, so a peak
@@ -99,6 +100,9 @@ static void publishStatus() {
     status.vuRight = rmsTakeVu(vuAccR);
     vuAccL = vuAccR = 0;
     vuFrames = 0;
+    // Retire a title that hasn't been refreshed in 20 minutes — longer than any
+    // plausible song, so it only fires when the stream stopped sending metadata.
+    if (status.title[0] && millis() - titleSetMs > 20UL * 60UL * 1000UL) status.title[0] = 0;
     // Scale the buffer gauge to a 5-second playback window, not the full 655KB
     // PSRAM ring (live servers only ever send a few seconds ahead, so a
     // total-capacity gauge would sit near zero forever).
@@ -123,6 +127,8 @@ static void startCurrentUrl() {
     Serial.printf("[player] connecting to URL %d/%d: %s\n", urlIndex + 1, urls.size(), urls[urlIndex].c_str());
     xSemaphoreTake(statusMutex, portMAX_DELAY);
     strlcpy(status.currentUrl, urls[urlIndex].c_str(), sizeof(status.currentUrl));
+    status.title[0] = 0;   // don't carry stale metadata across connections
+    status.station[0] = 0;
     xSemaphoreGive(statusMutex);
     icyBitrate = 0; // don't carry a stale rate across URLs
     audio.stopSong();
@@ -477,6 +483,7 @@ void audio_showstreamtitle(const char *info) {
     xSemaphoreTake(statusMutex, portMAX_DELAY);
     strlcpy(status.title, info, sizeof(status.title));
     xSemaphoreGive(statusMutex);
+    titleSetMs = millis();
 }
 
 // Called by the library with each decoded PCM block before it goes to I2S.
