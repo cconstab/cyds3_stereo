@@ -10,6 +10,7 @@
 #include "ota.h"
 #include "display_lvgl.h"
 #include "ui.h"
+#include "power.h"
 
 static uint32_t lastUiMs = 0;
 static uint32_t lastLedMs = 0;
@@ -37,7 +38,8 @@ void setup() {
     Serial.begin(115200);
     Serial.printf("\nCYD-S3 Stereo fw %s\n", FW_VERSION);
 
-    otaBegin(); // rollback check first — must run even if everything below crashes
+    powerBootInit(); // release deep-sleep pin holds glitch-free (also parks the amps)
+    otaBegin();      // rollback check — must run even if everything below crashes
 
     if (!LittleFS.begin(true)) Serial.println("[fs] LittleFS mount failed");
     if (!configLoad()) Serial.println("[cfg] no config, using defaults");

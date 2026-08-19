@@ -6,6 +6,7 @@
 #include "net.h"
 #include "ota.h"
 #include "display_lvgl.h"
+#include "power.h"
 #include <lvgl.h>
 #include <WiFi.h>
 
@@ -369,11 +370,37 @@ static void buildSettings() {
     lv_obj_t *btnBack = lv_btn_create(scrSettings);
     styleBtn(btnBack);
     lv_obj_set_size(btnBack, big ? 84 : 74, headerH - 12);
-    lv_obj_align(btnBack, LV_ALIGN_TOP_RIGHT, -PAD, 6);
+    lv_obj_align(btnBack, LV_ALIGN_TOP_RIGHT, -PAD - (headerH - 12) - 8, 6);
     lv_obj_add_event_cb(btnBack, [](lv_event_t *) { lv_scr_load(scrMain); }, LV_EVENT_CLICKED, nullptr);
     lv_obj_t *bl = lv_label_create(btnBack);
     lv_label_set_text(bl, LV_SYMBOL_LEFT " Back");
     lv_obj_center(bl);
+
+    // Power off (deep sleep, wake on touch) — far corner, red, one
+    // confirmation tap since waking means a full reboot.
+    lv_obj_t *btnOff = lv_btn_create(scrSettings);
+    lv_obj_set_style_bg_color(btnOff, lv_color_hex(0x7f1d1d), 0);
+    lv_obj_set_style_bg_color(btnOff, lv_color_hex(0xb91c1c), LV_STATE_PRESSED);
+    lv_obj_set_style_shadow_width(btnOff, 0, 0);
+    lv_obj_set_size(btnOff, headerH - 12, headerH - 12);
+    lv_obj_align(btnOff, LV_ALIGN_TOP_RIGHT, -PAD, 6);
+    lv_obj_add_event_cb(btnOff, [](lv_event_t *) {
+        static const char *btns[] = {"Power off", "Cancel", ""};
+        lv_obj_t *mb = lv_msgbox_create(nullptr, LV_SYMBOL_POWER " Power off",
+                                        "Deep sleep. Touch the screen to wake.", btns, false);
+        lv_obj_set_style_bg_color(mb, lv_color_hex(0x1a2029), 0);
+        lv_obj_set_style_text_color(mb, lv_color_hex(0xe5e7eb), 0);
+        lv_obj_center(mb);
+        lv_obj_add_event_cb(mb, [](lv_event_t *e) {
+            lv_obj_t *box = lv_event_get_current_target(e);
+            const char *t = lv_msgbox_get_active_btn_text(box);
+            if (t && strcmp(t, "Power off") == 0) powerOff(); // does not return
+            lv_msgbox_close(box);
+        }, LV_EVENT_VALUE_CHANGED, nullptr);
+    }, LV_EVENT_CLICKED, nullptr);
+    lv_obj_t *ol = lv_label_create(btnOff);
+    lv_label_set_text(ol, LV_SYMBOL_POWER);
+    lv_obj_center(ol);
 
     // Tabbed body: Audio / Network / System
     lv_obj_t *tv = lv_tabview_create(scrSettings, LV_DIR_TOP, big ? 40 : 32);

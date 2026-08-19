@@ -131,8 +131,43 @@ it's deliberately not in the web UI since it must match physical wiring. GPIO 14
 active **no mute pin is needed at all**: the "External speakers" switch mutes the amps by
 zeroing their I2S0 data stream in firmware, while the line-out (I2S1) keeps playing.
 Channel-select the amps statically instead: left SD → 5 V direct, right SD → 5 V via
-470 kΩ. Pin choice applies after a reboot. Note the onboard speaker rides the same I2S0
-stream, so the external-speakers mute silences it too.
+470 kΩ. Pin choice applies after a reboot. The onboard speaker rides the same I2S0
+stream, so the firmware only zeroes it when the onboard speaker is switched off too;
+with the onboard speaker on, the amps can't be muted separately in this wiring (the
+serial log notes it).
+
+### Battery power: the 5 V pin sags to battery voltage
+
+On USB the CYD's **5 V pin carries VBUS**; on battery it is power-pathed to the cell,
+so it sits at **battery voltage minus a diode drop (~3.5–3.9 V)** — nothing boosts it
+to a real 5 V. Whether 5 V-wired external audio survives that depends on each board's
+regulator headroom (observed on real hardware):
+
+- **GY-PCM5102 (purple)**: its XC6206 needs ~3.4 V in, so **line-out works only near
+  full charge** (battery above roughly 3.8 V) and quits partway down the curve.
+- **PCM5102MK (black RCA board)**: AMS1117s want ≥4.5 V in — effectively USB-only.
+- **MAX98357A amps**: 2.5–5.5 V parts, fine across the whole battery curve.
+
+For line-out that works across the full charge, in order of effort:
+
+1. **Accept it** — treat line-out as a "docked" (or freshly-charged) feature; the amps
+   and onboard speaker cover battery use. Zero effort.
+2. **Re-Vin to the 3V3 pin** (always live, battery or USB):
+   - **MAX98357A**: fine at 3.3 V (2.5–5.5 V part); max output drops ~3 W → ~1 W. If you
+     used the static channel-select, change the right amp's series resistor **470 kΩ →
+     220 kΩ** (the SD thresholds are absolute: 3.3 V direct is still LEFT, but 3.3 V via
+     470 kΩ lands in mix mode — 220 kΩ puts it back in the RIGHT band). The GPIO 14
+     mute wiring already assumes 3.3 V levels and needs no change.
+   - **GY-PCM5102 (purple)**: works — its XC6206 regulator is low-dropout, so 3.3 V in
+     gives ~3.2 V to the chip. Budget check: amps + DAC add ~100 mA+ of peaks to the
+     CYD's 3.3 V LDO on top of the ESP + display; at party volume prefer option 3.
+   - **PCM5102MK (black RCA board)**: does NOT run from 3.3 V as-is — its AMS1117
+     regulators need ≥4.5 V in. Either keep it on USB-only 5 V, or solder 3.3 V
+     directly to an AMS1117 **output** tab to bypass them (one-way mod).
+3. **Small 5 V boost module** from the battery pin (e.g. MT3608 class): everything works
+   as originally wired, at the cost of its quiescent drain (also during deep sleep —
+   consider switching its EN pin from a spare GPIO) and possible switching whine in the
+   analog outputs; pick a clean module and keep its wiring away from the RCA leads.
 
 **Do not use GPIO 15/16 for audio** — despite having a connector, that's the live I2C bus
 (touch controller + ES8311 codec, with pull-ups). I2S data there kills the touchscreen.

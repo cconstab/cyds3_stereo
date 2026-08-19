@@ -6,4 +6,5 @@ void displaySetBrightness(uint8_t pct);
 void displayScreenOff();              // backlight off; any touch wakes it
 void displayScreenWake();
 bool displayScreenIsOff();
+void displayPanelSleep();             // power-off path: DISPOFF + SLPIN, no wake
 void displayLoop();                   // lv_timer_handler pump

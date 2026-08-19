@@ -61,9 +61,9 @@ Calibrate the same `[MEASURE]` numbers as the flat case, **plus** `dac_hole_dx`
 battery dimensions if yours isn't a 103665. For `dac_type="rca"` every `rca_*`
 parameter was **estimated from a scaled photo** ([source](https://www.audiosciencereview.com/forum/index.php?attachments/board-jpg.358905/)) —
 measure the board size, hole insets, jack positions along the edge, and the
-barrel heights above the PCB before printing. Note the FNK0104B has no LiPo
-charging on board; there is floor space beside the battery pocket for a TP4056
-board if you add one.
+barrel heights above the PCB before printing. The FNK0104 has a TP4054 LiPo
+charger and JST battery connector on board (see HARDWARE.md), so the battery
+charges through the CYD's USB-C — no extra charger board needed.
 
 Render:
 

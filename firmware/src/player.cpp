@@ -163,14 +163,21 @@ static bool muteAvailable() {
     return !(config.lineOutFixed && config.lineOutPin == PIN_EXT_AMP_SD);
 }
 
-// Firmware-level amp mute: zeroes the I2S0 stream in the PCM hook. With fixed
-// line-out on I2S1 this silences the amps (and onboard codec) without touching
-// the RCA feed — no dedicated mute GPIO required.
+// Firmware-level amp mute: zeroes the I2S0 stream in the PCM hook. The onboard
+// ES8311 codec hangs off the same I2S0 bus as the amps, so zeroing the data
+// silences it too — only do it when the SD_MODE GPIO is unavailable (GPIO 14
+// carrying line-out data) AND the onboard speaker is off as well.
 static volatile bool extMute = false;
 
 static void applySpeakers(bool enabled) {
-    extMute = !enabled;
-    if (muteAvailable()) digitalWrite(PIN_EXT_AMP_SD, enabled ? HIGH : LOW);
+    if (muteAvailable()) {
+        digitalWrite(PIN_EXT_AMP_SD, enabled ? HIGH : LOW);
+        extMute = false;
+    } else {
+        extMute = !enabled && !config.onboardSpeaker;
+        if (!enabled && config.onboardSpeaker)
+            Serial.println("[player] amps follow the onboard speaker (GPIO14 is line-out DIN, no separate mute)");
+    }
 }
 
 static void handleCmd(const Cmd &cmd) {
@@ -442,6 +449,8 @@ void playerBegin() {
 void playerSetOnboardSpeaker(bool enabled) {
     es8311_output_enable(enabled);
     digitalWrite(PIN_AMP_ENABLE, enabled ? LOW : HIGH);
+    // the shared-bus data mute depends on this toggle too — recompute it
+    send(CMD_SPEAKERS, config.speakersEnabled ? 1 : 0);
 }
 
 void playerGetStatus(PlayerStatus &out) {

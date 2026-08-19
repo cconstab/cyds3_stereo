@@ -2,6 +2,7 @@
 #include "display_lvgl.h"
 #include "pins.h"
 #include "app_config.h"
+#include "power.h"
 #include <TFT_eSPI.h>
 #include <FT6336U.h>
 #include <Wire.h>
@@ -98,7 +99,7 @@ void displayBegin() {
     tft.setRotation(1); // landscape, USB on the right
     tft.fillScreen(TFT_BLACK);
 
-    if (config.bootSelfTest) displaySelfTest();
+    if (config.bootSelfTest && !powerWokeByTouch()) displaySelfTest(); // wake = fast boot
 
     ctp.begin();
 
@@ -131,6 +132,16 @@ void displaySetBrightness(uint8_t pct) {
 void displayScreenOff() {
     screenOff = true;
     ledcWrite(PIN_LCD_BL, 0);
+}
+
+// Power-off path: backlight off and panel into sleep-in (~µA). No wake path —
+// the next boot re-inits the panel from scratch.
+void displayPanelSleep() {
+    ledcWrite(PIN_LCD_BL, 0);
+    tft.writecommand(0x28); // DISPOFF
+    tft.writecommand(0x10); // SLPIN
+    delay(20);
+    ledcDetach(PIN_LCD_BL); // hand the pin back to GPIO so power.cpp can hold it low
 }
 
 void displayScreenWake() {
