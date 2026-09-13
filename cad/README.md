@@ -23,16 +23,21 @@ Two designs share this directory:
   bezel, so nothing bears on the PCB's top face. Measure `glass_h` (module
   face above PCB top) and **round it down** — a hair tall clamps snug, a hair
   short lets the screen sit back and rattle.
-- A **connector moat** (`con_l`/`con_t`/`con_b`, default 8 mm) leaves room
-  between the PCB edges and the case walls for plugs seated in the CYD's edge
-  connectors — the case is fully closed around them (no external holes for
-  them; the only openings are USB-C, the DAC's 3.5 mm jack, and the vents).
-  Cables route through the rim opening straight into the stand cavity. The
-  PCB is located by the display module in the bezel window and pressed by
-  corner pads on shelf arms that bridge the moat. `con_r` (the USB edge)
-  stays 0 — widening it would recess the USB-C port deeper than a plug
-  reaches. Plugs near the PCB corners have ~6 mm of depth over the pad
-  shelves; elsewhere they clear straight through into the cavity.
+- A **connector moat** (`con_*`, per PCB edge) leaves room between the PCB
+  edges and the case walls for plugs seated in the CYD's edge connectors —
+  the case is fully closed around them (no external holes for them; the only
+  openings are USB-C, the DAC jacks, and the vents). Cables route through the
+  rim opening straight into the stand cavity. The PCB is located by the
+  display module in the bezel window and pressed by corner pads on shelf arms
+  that bridge the moat (in `rca` mode the top-right pad sits partway along the
+  top edge instead of at the corner, clear of the red RCA jack's body).
+  `con_l`/`con_r` default to 3.6/4.3 mm — paired so the **window sits centered
+  in the case face** despite the module being offset on the PCB; raise them by
+  equal amounts to keep it centered. The USB-C connector is recessed behind
+  the right wall, so its wall slot is oversized (14 mm, opening just above the
+  PCB plane) — the whole plug head passes through the slot to reach it.
+  Plugs near the PCB corners have ~6 mm of depth over the pad shelves;
+  elsewhere they clear straight through into the cavity.
 - The **stand** is a hollow wedge with the battery pocket on its floor (battery
   lying flat, JST wire gap in the low front rib). The CYD's USB-C stays
   reachable through the **right** side; vent slots in the back.

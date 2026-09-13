@@ -48,15 +48,19 @@ disp_h = 50.0;       // module height
 glass_h = 4.0;       // module face above the PCB top — round DOWN when measuring
 under_h = 5.0;       // tallest component below the PCB (must stay < skirt depth d_s)
 usb_edge_off = 25.0; // USB-C center along the RIGHT short edge, from the bottom corner
-usb_w = 10.5;        // USB-C cutout width
+usb_w = 14.0;        // USB wall-slot width — oversize: the plug's overmold must
+                     // pass THROUGH the slot to reach the recessed connector
 
 // Connector moat: clearance between each PCB edge and the case wall so plugs
 // seated in the CYD's edge connectors (and their wires) fit INSIDE the case —
 // no external holes; cables route through the rim opening into the stand.
-// con_r (USB edge) defaults to 0: widening it buries the USB-C port deeper
-// than a plug can reach.
-con_l = 8.0;         // left short edge
-con_r = 0.0;         // right short edge (USB) — keep 0
+// con_l/con_r are paired so the display window sits CENTERED in the case face
+// (the module is offset on the PCB: 9.0 left margin vs 8.3 right). If you
+// raise con_l for a side-entry plug, raise con_r by the same amount to keep
+// the window centered. The USB-C sits recessed behind the right wall; its
+// wall slot is oversized so the whole plug head passes through to reach it.
+con_l = 3.6;         // left short edge
+con_r = 4.3;         // right short edge (USB)
 con_t = 8.0;         // top long edge
 con_b = 8.0;         // bottom long edge
 
@@ -73,23 +77,37 @@ standoff_od = 5.0;   // standoff outer diameter
 standoff_h = 4.0;    // standoff height (clears solder joints under the DAC)
 pilot_d = 1.8;       // pilot hole for M2 self-tapping screws
 
-// ---------------- RCA DAC board ("PCM5102MK": 2x RCA + 3.5mm) [MEASURE] ------------
-// Estimated from a scaled photo — verify every one of these with calipers.
-// Sold as a Raspberry-Pi add-on: the corner holes are Pi-style 2.7mm (M2.5
-// screws), but the spacing (~44mm) is the board's own, not HAT 58x49.
-rca_bw = 50.0;       // board width  (header edge -> jack edge; horizontal)
-rca_bh = 49.0;       // board height (jack edge length; vertical when mounted)
-rca_bt = 1.6;        // PCB thickness
-rca_hole_in = 3.0;   // corner mounting-hole inset from both edges
-rca_pilot = 2.2;     // pilot hole for M2.5 self-tapping screws
+// ---------------- RCA DAC board ("PCM5102MK": 2x RCA + 3.5mm) ----------------------
+// Gauge-measured on the actual board (2026-09). The two [DERIVED] values are
+// inferred from the measured connector-top heights — verify before trusting.
+rca_bw = 48.17;      // board width  (header edge -> jack edge; horizontal)
+rca_bh = 48.7;       // board height (jack edge length; vertical when mounted)
+rca_bt = 1.65;       // PCB thickness
+rca_hole_in = 3.0;   // corner mounting holes: edge to center
+rca_pilot = 2.5;     // pilot for M3 self-tappers (board holes measure 3.26 dia)
 rca_so = 4.0;        // standoff rib depth off the back wall
-rca_z0 = 15.0;       // board bottom edge height above the desk
-rca_j = [12.8, 36.6];// RCA jack centers (L, R) along the jack edge, from board BOTTOM
-rca_j35 = 24.6;      // 3.5mm jack center, same reference
-rca_axis = 6.3;      // RCA barrel axis above the PCB component face
-j35_axis = 3.0;      // 3.5mm barrel axis above the PCB component face
-rca_hole_d = 10.0;   // RCA barrel pass-through hole in the right wall
-j35_hole_d = 6.8;    // 3.5mm plug hole (gets an outside counterbore too)
+rca_z0 = 14.0;       // board bottom edge height above the desk
+rca_j = [15.0, 36.7]; // RCA centers (white/L, red/R) along the jack edge, from
+                     // the board BOTTOM. JIG-CALIBRATED: with the board seated
+                     // on the base step, the barrels sat ~1.5 above the
+                     // edge-referenced gauge values (13.52 from each edge), so
+                     // these carry that offset. The holes are also slotted
+                     // +2/-1 vertically to absorb board-to-board variation.
+rca_j35 = 25.9;      // 3.5mm jack center, same reference + same calibration
+rca_axis = 8.27;     // RCA barrel axis above the PCB component face (measured).
+                     // NB the barrels tilt slightly UPWARD on real boards (rear
+                     // solder pin sits lower) — the teardrop holes' extra
+                     // headroom above center absorbs that.
+j35_axis = 2.6;      // [DERIVED] 3.5mm axis: body top 6.79 - 1.65 = 5.14 above
+                     // the face, barrel centered -> ~2.6. VERIFY.
+rca_house = 12.79;   // RCA housing height above the PCB face (square bodies)
+rca_house_l = 13.0;  // RCA housing depth inboard from the jack edge
+rca_proud = 7.6;     // RCA barrel protrusion past the board edge (through the
+                     // 0.5 gap + 2.4 wall -> ~4.7 exposed for the plug)
+j35_proud = 3.0;     // 3.5mm nose past the board edge (~flush with the wall
+                     // outside; the counterbore gives it a little room)
+rca_hole_d = 11.0;   // RCA barrel pass-through hole (barrel ~8.3)
+j35_hole_d = 7.2;    // 3.5mm plug hole (gets an outside counterbore too)
 
 // ---------------- battery: 103665 LiPo (3.7V 3000mAh) ------------------------------
 bat_l = 65.0;        // battery length  (lies along X)
@@ -179,8 +197,10 @@ module shell() {
             translate([x0m + win_lap, y0m + win_lap, bezel_t - 1.0])
                 cube([disp_w - 2*win_lap, disp_h - 2*win_lap, 0.01]);
         }
-        // USB-C notch, right wall, open to the skirt edge (continues into the stand lip)
-        translate([s_ow - wall - 1, usb_y - usb_w/2, face_pcb + pcb_t])
+        // USB-C notch, right wall, open to the skirt edge (continues into the
+        // stand lip). Starts 1 above the PCB plane so the plug head — wider
+        // and taller than the connector — passes through the wall.
+        translate([s_ow - wall - 1, usb_y - usb_w/2, face_pcb - 1])
             cube([wall + 2, usb_w, shell_h + 2]);
         // snap slots: two per long side; also the pry points for disassembly
         for (x = [s_ow*0.25, s_ow*0.75], y = [0, s_oh - wall])
@@ -228,19 +248,21 @@ module stand() {
             }
             intersection() {   // clip interior additions to the outer solid
                 union() {
-                    rim_frame();
-                    pcb_pads();
-                    snap_tabs();
+                    if (part != "jig") {   // jig: DAC mount + jack wall only
+                        rim_frame();
+                        pcb_pads();
+                        snap_tabs();
+                        battery_pocket();
+                    }
                     if (dac_type == "gy") dac_standoffs();
                     if (dac_type == "rca") rca_ribs();
-                    battery_pocket();
                 }
                 wedge_solid();
             }
         }
         // USB-C pass-through in the right lip (meets the shell's wall notch)
         slope_frame() translate([rx + r_w - 0.8, s_usb - usb_w/2 - 2, -(R + 0.1)])
-            cube([rim + 4, usb_w + 4, R + 0.1 - (face_pcb + pcb_t) + shell_proud + 0.3]);
+            cube([rim + 4, usb_w + 4, R + 0.1 - (face_pcb - 1) + shell_proud]);
         if (dac_type == "gy") {
             // 3.5mm jack, back wall (teardrop so it prints without support)
             translate([dac_cx(), stand_d + 1, jack_zc()])
@@ -248,14 +270,18 @@ module stand() {
         }
         if (dac_type == "rca") {
             // jack column through the right wall: RCA barrels pass through,
-            // 3.5mm gets a snout hole plus an outside counterbore
-            for (jz = rca_j)
-                translate([OW + 1, rca_jy(rca_axis), rca_z0 + jz])
+            // 3.5mm gets a snout hole plus an outside counterbore. All are
+            // vertical slots (+2/-1) — cheap jacks vary in height and tilt
+            // upward, and the plug bodies cover the slots from outside.
+            for (jz = rca_j) hull() for (dz = [-1, 2])
+                translate([OW + 1, rca_jy(rca_axis), rca_z0 + jz + dz])
                     rotate([0, -90, 0]) rotate([0, 0, -90]) teardrop(d=rca_hole_d, h=wall + 3);
-            translate([OW + 1, rca_jy(j35_axis), rca_z0 + rca_j35])
-                rotate([0, -90, 0]) rotate([0, 0, -90]) teardrop(d=j35_hole_d, h=wall + 3);
-            translate([OW - 1.0, rca_jy(j35_axis), rca_z0 + rca_j35])
-                rotate([0, 90, 0]) cylinder(d=11.5, h=3);
+            hull() for (dz = [-1, 2])
+                translate([OW + 1, rca_jy(j35_axis), rca_z0 + rca_j35 + dz])
+                    rotate([0, -90, 0]) rotate([0, 0, -90]) teardrop(d=j35_hole_d, h=wall + 3);
+            hull() for (dz = [-1, 2])
+                translate([OW - 1.0, rca_jy(j35_axis), rca_z0 + rca_j35 + dz])
+                    rotate([0, 90, 0]) cylinder(d=11.5, h=3);
         }
         // vents, back wall (over the battery bay; shorter row in rca mode so
         // they stay clear of the wall-mounted board)
@@ -282,15 +308,20 @@ module rim_frame() {
 // Corner pads press the CYD PCB against the shell's bezel underside. The PCB
 // corners sit inboard of the rim opening (connector moat), so each pad rides
 // on a shelf arm rooted in the rim frame and bridging the moat.
+// In "rca" mode the top-right pad would collide with the red RCA jack's body
+// on the wall-mounted DAC, so it slides left along the PCB's top edge into
+// the free window between the snap tab and the RCA housing.
 module pcb_pads() {
     pad = 6;
+    trx = rx + clr + s_ow*0.75 + 4.2;   // relocated top-right pad, clear of the tab
     slope_frame()
         for (cx = [-1, 1], cy = [-1, 1]) {
-            px = cx < 0 ? pcb_fx0 : pcb_fx1 - pad;
+            moved = dac_type == "rca" && cx > 0 && cy > 0;
+            px = cx < 0 ? pcb_fx0 : (moved ? trx : pcb_fx1 - pad);
             py = cy < 0 ? pcb_fy0 : pcb_fy1 - pad;
             sx0 = cx < 0 ? ox - 3 : px;
             sy0 = cy < 0 ? oy - 3 : py;
-            sx1 = cx < 0 ? px + pad : ox + o_w + 3;
+            sx1 = cx < 0 ? px + pad : (moved ? px + pad + 1.5 : ox + o_w + 3);
             sy1 = cy < 0 ? py + pad : oy + o_h + 3;
             translate([sx0, sy0, -R - ring_t]) cube([sx1 - sx0, sy1 - sy0, ring_t]);
             translate([px, py, -R - 1])
@@ -402,4 +433,25 @@ if (part == "both") {
 if (part == "fit") {   // assembled preview: shell ghosted into the recess
     stand();
     %slope_frame() translate([rx + clr, ry + clr + s_oh, 0]) rotate([180, 0, 0]) shell();
+    // rca mode: ghost the DAC board + jack housing envelopes for clearance checks
+    if (dac_type == "rca") %union() {
+        translate([rca_x1() - rca_bw, rca_face() - rca_bt, rca_z0])
+            cube([rca_bw, rca_bt, rca_bh]);
+        for (jz = rca_j)   // RCA housings + barrels through the wall
+            translate([rca_x1() - rca_house_l, rca_face() - rca_bt - rca_house,
+                       rca_z0 + jz - rca_house/2])
+                cube([rca_house_l + rca_proud, rca_house, rca_house]);
+        translate([rca_x1() - 13, rca_face() - rca_bt - 5.2, rca_z0 + rca_j35 - 3])
+            cube([13 + j35_proud, 5.2, 6]);
+    }
+}
+if (part == "jig") {
+    // Fast-printing fit-check: just the stand's DAC corner — both standoff
+    // ribs with their screw bosses, the base step, and the right-wall jack
+    // holes. Prints as it sits. Render with dac_type="rca":
+    //   openscad -o rca-jig.stl -D 'part="jig"' -D 'dac_type="rca"' case-stand.scad
+    intersection() {
+        stand();
+        translate([OW - 63, 38, -1]) cube([64, stand_d - 37, rca_z0 + rca_bh + 7]);
+    }
 }
