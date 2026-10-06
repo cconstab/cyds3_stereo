@@ -44,22 +44,35 @@ Two designs share this directory:
 - Two DAC options, selected with `dac_type` (the shell is identical for both):
   - `"gy"` (default) — purple GY-PCM5102 on four M2 floor standoffs, 3.5mm
     jack out the **back** wall through a support-free teardrop hole.
-  - `"rca"` — the black "PCM5102MK"-style board (2× RCA + 3.5mm, sold as a
-    Raspberry-Pi add-on, ~50×49mm, Pi-style 2.7mm corner holes). It stands
-    flat against the **back** wall on two 12mm pilasters fused to the wall
-    and floor, two M2.5 self-tappers each into seating bosses (relieved
-    between so through-hole solder joints don't rock the board). A floor
-    step under the jack-side pilaster sits exactly at the board's bottom
-    edge — rest the board on it, then drive the screws; it carries the
-    static load. The jack column exits the **right** wall: the RCA barrels
-    pass through close-fitting holes (plug pull-out force goes into the
-    wall, not the screws) and the 3.5mm hole has an outside counterbore so
-    the plug shoulder reaches the jack. The I2S/VCC wires leave the board's
-    left-edge header straight to the CYD.
+  - `"rca"` — the black "PCM5102MK"-style board (2× RCA + 3.5mm, ~48×49mm,
+    M3 corner holes; gauge-measured, see the `rca_*` params). It stands flat
+    against the **back** wall on two 12mm pilaster spines, two M3
+    self-tappers each. The solder side faces the wall, so the board touches
+    **only** four 9×9 pads around its screw-hole corners — the spines sit
+    2.4mm back, clear of every solder joint — and a thin blade under the
+    jack-side pilaster seats the PCB's bare bottom edge (0.1 short of the
+    solder-side face). Don't skip that detail: solder standing the board off
+    a full-width step masqueraded as a 1.5mm jack-height error during
+    development. The jacks exit the **right** wall through ONE shared
+    opening (the 10.8mm jack pitch leaves no room for printable webs
+    between separate holes); each plug body covers its own spot, RCA
+    pull-out force goes into the wall via the barrels, and the 3.5mm nose
+    sits ~flush with the outside. The I2S/VCC wires leave the board's
+    left-edge header straight to the CYD. Print `part="jig"` (with
+    `dac_type="rca"`) first — a 20-minute corner of the stand with the
+    full DAC mount and jack wall for fit-checking each board batch.
 - Assembly order: screw the DAC down (2× M2 self-tappers minimum), drop the
   battery in (a foam pad or adhesive strip stops rattle), wire the DAC pigtail
   and battery lead to the CYD (~8 cm so the shell can lift off for service),
   then snap the shell in.
+
+The bezel window is cut around the panel's **lit active area** (`aa_*` params),
+not the glass outline — the glass's own black border is asymmetric (~8 mm on
+the driver/flex side, ~3 mm elsewhere), so a glass-centered window shows an
+off-center picture. Show a white screen, measure glass-edge → lit-pixels on
+each side, set `aa_l`/`aa_b` (and `aa_w`/`aa_h` if your panel differs), and the
+window *and* the left/right moat split re-center automatically. Changing them
+moves the PCB inside the case: reprint shell **and** stand together.
 
 Calibrate the same `[MEASURE]` numbers as the flat case, **plus** `dac_hole_dx`
 / `dac_hole_dy` — purple PCM5102 boards vary in mounting-hole spacing — and the
@@ -76,6 +89,7 @@ Render:
 openscad -o case-stand-shell.stl   -D 'part="shell"' case-stand.scad
 openscad -o case-stand-body.stl    -D 'part="stand"' case-stand.scad
 openscad -o case-stand-body-rca.stl -D 'part="stand"' -D 'dac_type="rca"' case-stand.scad
+openscad -o case-stand-rca-jig.stl  -D 'part="jig"'   -D 'dac_type="rca"' case-stand.scad
 ```
 
 `part="fit"` shows the shell ghosted into the recess; `part="both"` puts the two

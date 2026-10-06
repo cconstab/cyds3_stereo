@@ -54,15 +54,25 @@ usb_w = 14.0;        // USB wall-slot width — oversize: the plug's overmold mu
 // Connector moat: clearance between each PCB edge and the case wall so plugs
 // seated in the CYD's edge connectors (and their wires) fit INSIDE the case —
 // no external holes; cables route through the rim opening into the stand.
-// con_l/con_r are paired so the display window sits CENTERED in the case face
-// (the module is offset on the PCB: 9.0 left margin vs 8.3 right). If you
-// raise con_l for a side-entry plug, raise con_r by the same amount to keep
-// the window centered. The USB-C sits recessed behind the right wall; its
-// wall slot is oversized so the whole plug head passes through to reach it.
-con_l = 3.6;         // left short edge
-con_r = 4.3;         // right short edge (USB)
-con_t = 8.0;         // top long edge
-con_b = 8.0;         // bottom long edge
+// Only the TOTALS are set here: the left/right and bottom/top splits are
+// computed below so the bezel window — which is cut around the panel's lit
+// ACTIVE AREA, not the glass outline — sits centered in the case face.
+// The USB-C sits recessed behind the right wall; its wall slot is oversized
+// so the whole plug head passes through to reach it.
+con_lr = 7.9;        // total left+right moat (sets the case width)
+con_tb = 16.0;       // total bottom+top moat (sets the case height)
+
+// Display ACTIVE AREA within the module glass [MEASURE!]: show a white screen
+// and measure glass edge -> lit pixels. The panel's own black border is
+// asymmetric (the driver/flex side is ~8mm, the others ~3mm), which is why
+// the window can't just be centered on the glass.
+aa_w = 57.6;         // lit width
+aa_h = 43.2;         // lit height
+aa_l = 3.3;          // glass LEFT edge (shell-local; USB is the RIGHT edge) to
+                     // the lit area [MEASURE — if the fat border is on YOUR
+                     // left, this is ~8.3 instead and the whole window shifts]
+aa_b = 3.4;          // glass BOTTOM edge to the lit area [MEASURE]
+win_reveal = 1.6;    // even black margin left visible around the lit area
 
 // ---------------- DAC board (GY-PCM5102 / PCM5102A, 3.5mm jack) [MEASURE] ----------
 dac_w = 42.0;        // PCB length (jack axis)
@@ -87,13 +97,12 @@ rca_hole_in = 3.0;   // corner mounting holes: edge to center
 rca_pilot = 2.5;     // pilot for M3 self-tappers (board holes measure 3.26 dia)
 rca_so = 4.0;        // standoff rib depth off the back wall
 rca_z0 = 14.0;       // board bottom edge height above the desk
-rca_j = [15.0, 36.7]; // RCA centers (white/L, red/R) along the jack edge, from
-                     // the board BOTTOM. JIG-CALIBRATED: with the board seated
-                     // on the base step, the barrels sat ~1.5 above the
-                     // edge-referenced gauge values (13.52 from each edge), so
-                     // these carry that offset. The holes are also slotted
-                     // +2/-1 vertically to absorb board-to-board variation.
-rca_j35 = 25.9;      // 3.5mm jack center, same reference + same calibration
+rca_j = [13.52, 35.18]; // RCA centers (white/L, red/R) along the jack edge, from
+                     // the board BOTTOM (gauge values: 13.52 from each nearest
+                     // edge). NB an earlier +1.5 "calibration" turned out to be
+                     // bottom-edge solder standing the board off the old step —
+                     // cured by the edge-blade seat, so the gauge values stand.
+rca_j35 = 24.41;     // 3.5mm jack center, same reference (~edge-centered)
 rca_axis = 8.27;     // RCA barrel axis above the PCB component face (measured).
                      // NB the barrels tilt slightly UPWARD on real boards (rear
                      // solder pin sits lower) — the teardrop holes' extra
@@ -123,7 +132,9 @@ rim = 4.0;           // sloped-face margin around the shell recess
 stand_d = 66.0;      // footprint depth, front toe -> back wall
 wall = 2.4;          // wall / floor thickness
 bezel_t = 2.8;       // shell bezel plate thickness
-win_lap = 2.0;       // bezel overlap onto the display module's inactive border
+                     // (window size/position comes from the aa_* active-area
+                     // params above — the bezel overlaps whatever asymmetric
+                     // black border the panel has)
                      // (2.8" panels have ~3.4mm border top/bottom, ~5mm sides)
 win_bevel = 1.5;     // 45-ish bevel around the window, opening toward the viewer
 mod_clr = 0.5;       // pocket clearance around the display module
@@ -134,6 +145,17 @@ clr = 0.35;          // printer fit clearance
 vent = true;         // vent slots in the back wall
 
 // ---------------- derived — shell ----------------
+// Moat splits: chosen so the window (centered on the lit area) is centered in
+// the case face. Changing aa_l/aa_b re-balances these — and moves the PCB
+// within the case, so BOTH shell and stand must be reprinted together.
+con_l = (con_lr + (cyd_w - 2*(disp_x + aa_l) - aa_w)) / 2;
+con_r = con_lr - con_l;
+con_b = (con_tb + (cyd_h - 2*(disp_y + aa_b) - aa_h)) / 2;
+con_t = con_tb - con_b;
+echo(str("[case] moat L/R/B/T = ", con_l, "/", con_r, "/", con_b, "/", con_t,
+         "  min bezel-over-glass lap = ",
+         min(aa_l, disp_w - aa_l - aa_w, aa_b, disp_h - aa_b - aa_h) - win_reveal,
+         " (want >= 1)"));
 iw = cyd_w + 2*clr + con_l + con_r;
 ih = cyd_h + 2*clr + con_b + con_t;
 usb_y = wall + con_b + clr + usb_edge_off;   // USB center, shell-local
@@ -167,7 +189,7 @@ $fn = 48;
 // =============================================================
 // SHELL — bezel + skirt holding the CYD (snaps into the stand)
 // =============================================================
-// The bezel plate overlaps the display module's inactive border by win_lap
+// The bezel plate overlaps the display module's inactive border
 // (the module is nearly edge-to-edge on the PCB, so a poke-through window
 // would leave knife-edge tolerances top and bottom). The module face seats
 // against the plate underside inside a shallow fence; the corner pads in the
@@ -187,15 +209,16 @@ module shell() {
                 frame([disp_w + 2*(mod_clr + 1.8), disp_h + 2*(mod_clr + 1.8)],
                       t=1.8, h=glass_h + 0.2);
         }
-        // window, overlapping the module border by win_lap all around
-        translate([x0m + win_lap, y0m + win_lap, -1])
-            cube([disp_w - 2*win_lap, disp_h - 2*win_lap, bezel_t + 2]);
+        // window: an even win_reveal margin around the panel's LIT area (the
+        // glass outline is ignored — its own black border is asymmetric)
+        translate([x0m + aa_l - win_reveal, y0m + aa_b - win_reveal, -1])
+            cube([aa_w + 2*win_reveal, aa_h + 2*win_reveal, bezel_t + 2]);
         // bevel opening toward the viewer
         hull() {
-            translate([x0m + win_lap - win_bevel, y0m + win_lap - win_bevel, -0.01])
-                cube([disp_w - 2*(win_lap - win_bevel), disp_h - 2*(win_lap - win_bevel), 0.01]);
-            translate([x0m + win_lap, y0m + win_lap, bezel_t - 1.0])
-                cube([disp_w - 2*win_lap, disp_h - 2*win_lap, 0.01]);
+            translate([x0m + aa_l - win_reveal - win_bevel, y0m + aa_b - win_reveal - win_bevel, -0.01])
+                cube([aa_w + 2*(win_reveal + win_bevel), aa_h + 2*(win_reveal + win_bevel), 0.01]);
+            translate([x0m + aa_l - win_reveal, y0m + aa_b - win_reveal, bezel_t - 1.0])
+                cube([aa_w + 2*win_reveal, aa_h + 2*win_reveal, 0.01]);
         }
         // USB-C notch, right wall, open to the skirt edge (continues into the
         // stand lip). Starts 1 above the PCB plane so the plug head — wider
@@ -269,19 +292,18 @@ module stand() {
                 rotate([90, 0, 0]) teardrop(d=jack_d, h=wall + 3);
         }
         if (dac_type == "rca") {
-            // jack column through the right wall: RCA barrels pass through,
-            // 3.5mm gets a snout hole plus an outside counterbore. All are
-            // vertical slots (+2/-1) — cheap jacks vary in height and tilt
-            // upward, and the plug bodies cover the slots from outside.
-            for (jz = rca_j) hull() for (dz = [-1, 2])
-                translate([OW + 1, rca_jy(rca_axis), rca_z0 + jz + dz])
-                    rotate([0, -90, 0]) rotate([0, 0, -90]) teardrop(d=rca_hole_d, h=wall + 3);
-            hull() for (dz = [-1, 2])
-                translate([OW + 1, rca_jy(j35_axis), rca_z0 + rca_j35 + dz])
+            // ONE shared opening for all three jacks (hull of their positions):
+            // at 10.8mm pitch with 8.3 barrels there's no room for printable
+            // webs between separate holes, and one opening also absorbs jack
+            // height/tilt variation. Plug bodies cover their own spots, and the
+            // 3.5mm plug reaches its flush nose straight through the opening.
+            hull() {
+                for (jz = rca_j)
+                    translate([OW + 1, rca_jy(rca_axis), rca_z0 + jz])
+                        rotate([0, -90, 0]) rotate([0, 0, -90]) teardrop(d=rca_hole_d, h=wall + 3);
+                translate([OW + 1, rca_jy(j35_axis), rca_z0 + rca_j35])
                     rotate([0, -90, 0]) rotate([0, 0, -90]) teardrop(d=j35_hole_d, h=wall + 3);
-            hull() for (dz = [-1, 2])
-                translate([OW - 1.0, rca_jy(j35_axis), rca_z0 + rca_j35 + dz])
-                    rotate([0, 90, 0]) cylinder(d=11.5, h=3);
+            }
         }
         // vents, back wall (over the battery bay; shorter row in rca mode so
         // they stay clear of the wall-mounted board)
@@ -369,29 +391,34 @@ function rca_x1()  = OW - wall - 0.5;              // board right edge
 function rca_face() = stand_d - wall - rca_so;     // PCB rests on this plane
 function rca_jy(axis) = rca_face() - rca_bt - axis; // jack barrel axis, world Y
 
+// The board's solder side faces the wall, so it may touch NOTHING except the
+// four 9x9 pads around its (component-free) screw-hole corners: the pilaster
+// spines sit 2.4 back from the board plane, clear of any solder joint.
 module rca_ribs() {
     for (hx = [rca_x1() - rca_bw + rca_hole_in, rca_x1() - rca_hole_in])
         translate([hx, 0, 0]) difference() {
             union() {
-                // full-height pilaster, fused to the back wall and the floor
-                translate([-6, rca_face() + 1.5, wall - 0.1])
-                    cube([12, rca_so - 1.4, rca_z0 + rca_bh - rca_hole_in + 3.5 - wall]);
-                // seating bosses around each screw hole (1.5 relief between
-                // them so the board's through-hole joints don't rock it)
+                // spine, fused to the back wall and the floor
+                translate([-6, rca_face() + 2.4, wall - 0.1])
+                    cube([12, stand_d - wall - rca_face() - 2.3,
+                          rca_z0 + rca_bh - rca_hole_in + 3.5 - wall]);
+                // the ONLY board contact: pads around the screw holes
                 for (hz = [rca_z0 + rca_hole_in, rca_z0 + rca_bh - rca_hole_in])
-                    translate([0, rca_face(), hz]) rotate([-90, 0, 0])
-                        cylinder(d=9, h=1.6);
+                    translate([-4.5, rca_face() - 0.01, hz - 4.5]) cube([9, 2.6, 9]);
             }
             for (hz = [rca_z0 + rca_hole_in, rca_z0 + rca_bh - rca_hole_in])
                 translate([0, rca_face() - 1, hz]) rotate([-90, 0, 0])
-                    cylinder(d=rca_pilot, h=rca_so + 2);
+                    cylinder(d=rca_pilot, h=rca_so + 3);
         }
-    // base step under the jack-side pilaster: its top face is at the board's
-    // bottom edge (rca_z0), so the board rests on it during assembly and the
-    // step carries the static load instead of the screws. (Left side has the
-    // battery below, so it gets no step.)
-    translate([rca_x1() - rca_hole_in - 6, rca_face() - 1.2, wall - 0.1])
-        cube([12, stand_d - wall - rca_face() + 1.3, rca_z0 - wall + 0.1]);
+    // Base seat under the jack-side pilaster: a thin blade whose top carries
+    // only the PCB's bare bottom EDGE — it stops 0.1 short of the solder-side
+    // face, and its support block stays 2 below the board, so bottom-edge
+    // solder joints hang in free air. (Solder standing the board off the old
+    // full-width step is what faked the earlier +1.5mm "calibration".)
+    translate([rca_x1() - rca_hole_in - 6, rca_face() - 1.4, wall - 0.1]) {
+        cube([12, stand_d - wall - rca_face() + 1.5, rca_z0 - 2 - wall + 0.1]);
+        cube([12, 1.3, rca_z0 - wall + 0.1]);
+    }
 }
 
 // ---------------- battery pocket ----------------
